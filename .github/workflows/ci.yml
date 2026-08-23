@@ -6,6 +6,9 @@ on:
   pull_request:
   # Erlaubt den Lauf von Hand, etwa um einen Flake auszuschließen.
   workflow_dispatch:
+  # Damit das Deploy dieselben Prüfungen aufrufen kann, statt sie zu kopieren.
+  # Zwei Kopien driften auseinander; eine geprüfte Quelle tut das nicht.
+  workflow_call:
 
 # Ein neuer Push auf denselben Branch bricht den laufenden Lauf ab —
 # Ergebnisse zu einem überholten Stand nützen niemandem.

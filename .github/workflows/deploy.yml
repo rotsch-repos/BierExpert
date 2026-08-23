@@ -1,0 +1,127 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      probelauf:
+        description: 'Nur zeigen, was sich ändern würde — nichts ausliefern'
+        type: boolean
+        default: false
+
+# Zwei Deployments gleichzeitig würden sich im Wurzelverzeichnis in die Quere
+# kommen. cancel-in-progress bleibt aus: ein laufendes Deploy abzubrechen
+# könnte einen halben Stand hinterlassen.
+concurrency:
+  group: deploy-produktion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Dieselben Prüfungen wie bei jedem Push — nicht kopiert, sondern aufgerufen.
+  pruefen:
+    uses: ./.github/workflows/ci.yml
+
+  ausliefern:
+    name: Auf den Server ausliefern
+    needs: pruefen
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Über die Umgebung lassen sich in den Repo-Einstellungen eine Freigabe
+    # und die Adresse hinterlegen; Secrets können daran gebunden werden.
+    environment:
+      name: produktion
+      url: ${{ vars.DEPLOY_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Bauen
+        run: npm run build
+
+      - name: Einstellungen prüfen
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+          USER: ${{ vars.DEPLOY_USER }}
+          DOCROOT: ${{ vars.DEPLOY_DOCROOT }}
+          BASIS: ${{ vars.DEPLOY_BASIS }}
+        run: |
+          fehlt=0
+          for name in HOST USER DOCROOT BASIS; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository-Variable DEPLOY_${name} ist nicht gesetzt."
+              fehlt=1
+            fi
+          done
+          [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ] && { echo "::error::Secret SSH_PRIVATE_KEY fehlt."; fehlt=1; }
+          [ -z "${{ secrets.SSH_KNOWN_HOSTS }}" ] && { echo "::error::Secret SSH_KNOWN_HOSTS fehlt."; fehlt=1; }
+          exit $fehlt
+
+      - name: SSH einrichten
+        env:
+          SCHLUESSEL: ${{ secrets.SSH_PRIVATE_KEY }}
+          BEKANNTE_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # Ohne 600 lehnt ssh den Schlüssel ab.
+          printf '%s\n' "$SCHLUESSEL" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Der Fingerabdruck des Servers kommt aus einem Secret. Ein
+          # StrictHostKeyChecking=no würde jeden Server akzeptieren, der sich
+          # unter dieser Adresse meldet — das ist der Punkt, an dem sich
+          # jemand dazwischenschalten könnte.
+          printf '%s\n' "$BEKANNTE_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<CFG
+          Host ${{ vars.DEPLOY_HOST }}
+            User ${{ vars.DEPLOY_USER }}
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          CFG
+          chmod 600 ~/.ssh/config
+
+      - name: Ausliefern
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_DOCROOT: ${{ vars.DEPLOY_DOCROOT }}
+          DEPLOY_BASIS: ${{ vars.DEPLOY_BASIS }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          DEPLOY_BEHALTEN: ${{ vars.DEPLOY_BEHALTEN || '5' }}
+          MARKE: ${{ github.run_number }}-${{ github.sha }}
+          PROBELAUF: ${{ inputs.probelauf && 'ja' || 'nein' }}
+        run: ./deploy/ausliefern.sh
+
+      - name: Nachsehen, ob die Seite antwortet
+        if: ${{ vars.DEPLOY_URL != '' && !inputs.probelauf }}
+        run: |
+          echo "Prüfe ${{ vars.DEPLOY_URL }}"
+          # Kurz warten: manche Server brauchen einen Moment, bis der neue
+          # Stand ausgeliefert wird.
+          for versuch in 1 2 3; do
+            status=$(curl -fsS -o /tmp/seite.html -w '%{http_code}' "${{ vars.DEPLOY_URL }}") && break
+            echo "Versuch $versuch fehlgeschlagen, nochmal in 5 s"
+            sleep 5
+          done
+          echo "HTTP $status"
+          grep -q 'Bier Expert' /tmp/seite.html \
+            || { echo "::error::Die ausgelieferte Seite enthält den Titel nicht."; exit 1; }
+          echo "Die Seite antwortet und trägt den erwarteten Titel."
+
+      - name: Schlüssel entfernen
+        if: always()
+        run: rm -f ~/.ssh/id_deploy

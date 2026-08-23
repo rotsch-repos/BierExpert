@@ -1,0 +1,61 @@
+name: Zurücksetzen
+
+# Nur von Hand: ein Rückfall ist immer eine Entscheidung, nie eine Folge
+# eines Pushes.
+on:
+  workflow_dispatch:
+    inputs:
+      stand:
+        description: 'Marke des Standes (leer = der letzte vor dem aktuellen)'
+        type: string
+        required: false
+
+concurrency:
+  group: deploy-produktion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  zuruecksetzen:
+    name: Auf einen früheren Stand zurück
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: produktion
+      url: ${{ vars.DEPLOY_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH einrichten
+        env:
+          SCHLUESSEL: ${{ secrets.SSH_PRIVATE_KEY }}
+          BEKANNTE_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SCHLUESSEL" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$BEKANNTE_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<CFG
+          Host ${{ vars.DEPLOY_HOST }}
+            User ${{ vars.DEPLOY_USER }}
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          CFG
+          chmod 600 ~/.ssh/config
+
+      - name: Zurücksetzen
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_DOCROOT: ${{ vars.DEPLOY_DOCROOT }}
+          DEPLOY_BASIS: ${{ vars.DEPLOY_BASIS }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          ZIELSTAND: ${{ inputs.stand }}
+        run: ./deploy/zuruecksetzen.sh
+
+      - name: Schlüssel entfernen
+        if: always()
+        run: rm -f ~/.ssh/id_deploy

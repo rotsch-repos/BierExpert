@@ -1,0 +1,58 @@
+# Apache-Einstellungen für die ausgelieferte Seite (Hostpoint fährt Apache).
+#
+# Diese Datei liegt in public/ und landet damit im Build. Das ist Absicht:
+# Das Deploy räumt im Zielverzeichnis auf, was nicht zum Build gehört — läge
+# die Datei nur auf dem Server, wäre sie nach dem ersten Deploy weg.
+
+<IfModule mod_headers.c>
+  # Die Dateinamen unter assets/ tragen einen Inhalts-Hash. Ändert sich der
+  # Inhalt, ändert sich der Name — sie dürfen deshalb beliebig lange liegen
+  # bleiben.
+  <FilesMatch "\.(js|css|woff2?)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # index.html trägt keinen Hash und verweist auf die gehashten Dateien.
+  # Würde sie zwischengespeichert, bekämen wiederkehrende Besucher nach einem
+  # Deploy weiter die alte Seite mit Verweisen auf gelöschte Dateien.
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # Bilder ändern sich selten, tragen aber keinen Hash — ein Tag ist der
+  # Kompromiss zwischen Frische und Last.
+  <FilesMatch "\.(svg|png|jpe?g|webp|gif|ico)$">
+    Header set Cache-Control "public, max-age=86400"
+  </FilesMatch>
+
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain
+  AddOutputFilterByType DEFLATE application/javascript application/json
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+<IfModule mod_mime.c>
+  AddType image/svg+xml .svg
+  AddType font/woff2 .woff2
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Auf HTTPS umleiten. Die Zwischenablage-Schaltfläche verlangt einen
+  # sicheren Kontext — über http bliebe sie ohne Funktion.
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Die Seite wechselt ihre Sichten über den Hash, den der Server nie zu
+  # sehen bekommt. Es braucht daher keine Umschreibung auf index.html —
+  # jede echte Anfrage zielt auf eine Datei, die es gibt.
+</IfModule>
+
+# Verzeichnisinhalte nicht auflisten.
+Options -Indexes

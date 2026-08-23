@@ -194,6 +194,39 @@ npm run dev     # http://localhost:5173
 Dann die **Schlüsselkammer** aufklappen, Schlüssel eintragen, verwahren — und
 ein Etikett fotografieren.
 
+## Pipeline und Auslieferung
+
+| Workflow                  | Wann                              | Was                                                        |
+| ------------------------- | --------------------------------- | ---------------------------------------------------------- |
+| `.github/workflows/ci.yml`| Jeder Push, jeder Pull Request    | Typprüfung, Build, 24 Playwright-Tests auf Desktop und Mobil |
+| `deploy.yml`              | Push auf `main`, oder von Hand    | Ruft die CI auf und liefert danach per SSH aus              |
+| `zuruecksetzen.yml`       | Nur von Hand                      | Setzt auf einen früheren Stand zurück                       |
+
+Das Deploy ruft die CI auf, statt ihre Schritte zu kopieren — zwei Kopien
+driften auseinander, eine geprüfte Quelle tut das nicht. Schlägt eine Prüfung
+fehl, wird nicht ausgeliefert.
+
+Einrichtung, Ablauf und Rückfall stehen in [`deploy/README.md`](./deploy/README.md).
+
+## Tests
+
+```bash
+npm test              # alle Tests
+npm run test:ui       # mit Oberfläche zum Nachvollziehen
+```
+
+Die Tests fahren gegen den Produktionsbuild, nicht gegen den Dev-Server:
+geprüft werden soll, was ausgeliefert wird. Die Anthropic-Aufrufe werden aus
+Testdaten in `tests/fixtures/` beantwortet und Google Fonts abgefangen — kein
+Test hängt am Netz.
+
+Liegt auf der Maschine schon ein Chromium bereit, das Playwright nicht neu
+laden soll:
+
+```bash
+PLAYWRIGHT_CHROMIUM_PATH=/pfad/zu/chromium npm test
+```
+
 ## Skripte
 
 | Befehl              | Wirkung                                       |
@@ -201,7 +234,9 @@ ein Etikett fotografieren.
 | `npm run dev`       | Dev-Server mit Live-Reload auf Port 5173       |
 | `npm run build`     | Type-Check und Produktions-Build nach `dist/`  |
 | `npm run preview`   | Serviert den Build auf Port 4173               |
-| `npm run typecheck` | Nur der Type-Check, ohne Build                 |
+| `npm run typecheck` | Typprüfung für App und Tests, ohne Build       |
+| `npm test`          | Playwright-Tests gegen den Build                |
+| `npm run test:ui`   | Dieselben Tests mit Oberfläche                  |
 
 ## Aufbau
 
@@ -218,6 +253,29 @@ ein Etikett fotografieren.
 | `src/glossar.ts`   | Die Sortendaten des Bierglossars                               |
 | `src/glas.ts`      | Zeichnet ein Bierglas als SVG: Form, Farbe, Schaumkrone        |
 | `public/logo.svg`  | Logo (derzeit Platzhalter, siehe oben)                         |
+| `public/.htaccess` | Apache-Regeln: Cache, HTTPS-Umleitung, Komprimierung           |
+| `deploy/`          | Auslieferung und Rückfall, samt Anleitung                      |
+| `tests/`           | Playwright-Tests und ihre Testdaten                            |
+
+## Offene Punkte
+
+Zwei Dinge, die die Seite in ihrer heutigen Form noch nicht kann und die
+zusammengehören, weil beide serverseitigen Code brauchen:
+
+1. **Der API-Schlüssel liegt im Browser.** Solange die Seite nur lokal läuft,
+   ist das vertretbar. Öffentlich ausgeliefert ist es das nicht — jeder
+   Besucher kann ihn auslesen. Die Auswertung muss auf den Server wandern.
+2. **Das Sprachmodell soll lokal laufen**, nicht über die Anthropic-API. Der
+   Aufruf in `src/etikett.ts` nutzt derzeit das Anthropic-SDK und muss auf den
+   eigenen Endpunkt umgestellt werden. Zu klären ist dabei, was der lokale
+   Dienst bei zwei Punkten anbietet, an denen die heutige Lösung hängt:
+   Bildverstehen und erzwungene JSON-Struktur nach einem Schema.
+3. **Die MySQL-Datenbank ist angelegt, aber nicht angebunden.** Wozu sie dienen
+   soll — Auswertungen aufheben, ein eigenes Glossar pflegen, Nutzerkonten —
+   entscheidet, wie das Schema aussieht.
+
+Auf dem Hostwebspace steht dafür PHP zur Verfügung; ein dauerhaft laufender
+Node-Prozess ist auf geteiltem Hosting üblicherweise nicht vorgesehen.
 
 ## Grenzen
 
