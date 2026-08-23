@@ -109,18 +109,27 @@ jobs:
       - name: Nachsehen, ob die Seite antwortet
         if: ${{ vars.DEPLOY_URL != '' && !inputs.probelauf }}
         run: |
-          echo "Prüfe ${{ vars.DEPLOY_URL }}"
-          # Kurz warten: manche Server brauchen einen Moment, bis der neue
-          # Stand ausgeliefert wird.
+          echo "Die Dateien sind ausgeliefert. Jetzt die Erreichbarkeit prüfen:"
+          echo "  ${{ vars.DEPLOY_URL }}"
+          echo
+
+          # Ohne -f: ein Fehlerstatus soll als Zahl zurückkommen statt als
+          # Abbruch. Die Zahl ist hier die eigentliche Auskunft.
           for versuch in 1 2 3; do
-            status=$(curl -fsS -o /tmp/seite.html -w '%{http_code}' "${{ vars.DEPLOY_URL }}") && break
-            echo "Versuch $versuch fehlgeschlagen, nochmal in 5 s"
+            status=$(curl -sS -L -o /tmp/seite.html -w '%{http_code}' "${{ vars.DEPLOY_URL }}" || echo 000)
+            [ "$status" = "200" ] && break
+            echo "Versuch $versuch: HTTP $status — nochmal in 5 s"
             sleep 5
           done
-          echo "HTTP $status"
+
+          if [ "$status" != "200" ]; then
+            echo "::error title=Ausgeliefert, aber nicht erreichbar::HTTP $status. Die Dateien liegen auf dem Server — das Deploy selbst ist durchgelaufen. Was hier fehlt, gehört zur Einrichtung beim Anbieter: Ist die Website aktiv geschaltet, zeigt die DNS-Auflösung hierher, und ist das Zertifikat ausgestellt? Solange das Zertifikat aussteht, ist ein Fehlschlag an dieser Stelle zu erwarten; wer währenddessen grüne Läufe möchte, leert die Variable DEPLOY_URL."
+            exit 1
+          fi
+
           grep -q 'Bier Expert' /tmp/seite.html \
-            || { echo "::error::Die ausgelieferte Seite enthält den Titel nicht."; exit 1; }
-          echo "Die Seite antwortet und trägt den erwarteten Titel."
+            || { echo "::error::HTTP 200, aber der Titel fehlt — antwortet dort die richtige Seite?"; exit 1; }
+          echo "Erreichbar, HTTP 200, Titel stimmt."
 
       - name: Schlüssel entfernen
         if: always()

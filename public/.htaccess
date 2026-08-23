@@ -43,6 +43,13 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
+  # Der Prüfpfad der Zertifizierungsstelle darf NIE umgeleitet werden.
+  # Let's Encrypt weist die Verfügungsgewalt über die Domain über einfaches
+  # http nach. Leitet man das auf https um, scheitert die Prüfung, solange
+  # es kein Zertifikat gibt — und es gibt keines, solange die Prüfung
+  # scheitert. Diese Zeile bricht die Sackgasse auf.
+  RewriteRule ^\.well-known/ - [L]
+
   # Auf HTTPS umleiten. Die Zwischenablage-Schaltfläche verlangt einen
   # sicheren Kontext — über http bliebe sie ohne Funktion.
   RewriteCond %{HTTPS} !=on
