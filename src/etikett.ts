@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { EtikettSchema, type Etikett } from './schema';
+import { ErweitertSchema, EtikettSchema, type Erweitert, type Etikett } from './schema';
 import type { AufbereitetesBild } from './bild';
 
 const MODELL = 'claude-opus-5';
@@ -32,18 +32,6 @@ oder Hinweise auf Landesherren. Sag, worauf sie zurückgehen.
 7. Destilliere daraus drei bis fünf Sätze Gesprächsstoff — Dinge, die am Tisch \
 tatsächlich überraschen, konkret und in einem Atemzug sagbar.
 
-Danach die erweiterte Sicht auf das Bier, jeweils konkret auf diesen Stil und \
-dieses Bier bezogen, nicht allgemein über Bier:
-8. Brauart: Verfahren, Zutaten mit ihrer jeweiligen Rolle, Gärführung, und was \
-das Verfahren gerade hier ausmacht.
-9. Speisen: erst der Grundsatz — ergänzt das Bier das Gericht, schneidet es durch \
-oder spiegelt es? —, dann konkrete Gerichte mit Begründung, und was nicht dazu passt.
-10. Verkostung: die beste Trinktemperatur als Spanne, mit Begründung, was bei zu \
-kalt und bei zu warm passiert. Dazu Glas, Einschenken und die Schritte der \
-Verkostung in der richtigen Reihenfolge.
-11. Verwandte Biere: drei bis fünf, die ähnlich gebraut sind und ähnlich schmecken. \
-Zu jedem, worin die Ähnlichkeit liegt und worin der Unterschied.
-
 Wichtige Regeln:
 - Erfinde niemals Fakten. Was du nicht weißt, ist "unbekannt".
 - Unterscheide klar zwischen dem, was auf dem Etikett zu sehen ist, und dem, was du \
@@ -58,6 +46,31 @@ freundlich, was du stattdessen siehst.
 - Antworte durchgehend auf Deutsch.`;
 
 const FRAGE = `Hier ist das Foto. Zerlege dieses Etikett in seine Einzelteile.`;
+
+const ERWEITERT_PROMPT = `Du bist der Bierkundler von "Bier Expert". Du bekommst das Foto \
+einer Bierflasche, einer Dose oder eines Etiketts. Bestimme, um welches Bier es sich \
+handelt, und gib dann die erweiterte Sicht darauf — jeweils konkret auf diesen Stil \
+und dieses Bier bezogen, nicht allgemein über Bier.
+
+1. Brauart: das Verfahren, die Zutaten mit ihrer jeweiligen Rolle, die Gärführung, \
+und was das Verfahren gerade bei diesem Bier ausmacht.
+2. Speisen: erst der Grundsatz — ergänzt das Bier das Gericht, schneidet es durch \
+oder spiegelt es? —, dann konkrete Gerichte mit Begründung, und was nicht dazu passt.
+3. Verkostung: die beste Trinktemperatur als Spanne, mit Begründung, was bei zu kalt \
+und bei zu warm passiert. Dazu Glas, Einschenken und die Schritte der Verkostung in \
+der richtigen Reihenfolge.
+4. Verwandte Biere: drei bis fünf, die ähnlich gebraut sind und ähnlich schmecken. \
+Zu jedem, worin die Ähnlichkeit liegt und worin der Unterschied.
+
+Wichtige Regeln:
+- Erfinde niemals Fakten. Erkennst du die Sorte, aber nicht die genaue Marke, beziehe \
+dich auf den Stil und sag das.
+- Nenne konkrete Gerichte, keine Kategorien. Keine Allgemeinplätze wie "passt zu \
+deftiger Küche".
+- Die Trinktemperatur ist eine Spanne in Grad Celsius, keine Umschreibung.
+- Antworte durchgehend auf Deutsch.`;
+
+const ERWEITERT_FRAGE = `Hier ist das Foto. Gib die erweiterte Sicht auf dieses Bier.`;
 
 export class EtikettFehler extends Error {
   constructor(
@@ -78,13 +91,14 @@ export async function etikettLesen(schluessel: string, bild: AufbereitetesBild):
   });
 
   try {
-    // Streaming, nicht messages.parse(): bei diesem max_tokens lehnt das SDK
-    // einen nicht-gestreamten Aufruf ab, weil die errechnete Zeitgrenze über
-    // den erlaubten zehn Minuten läge. finalMessage() läuft durch denselben
-    // Parser und liefert parsed_output genauso.
+    // Streaming statt messages.parse(): die Antwort ist lang, und gestreamt
+    // stellt sich die Frage nach der Zeitgrenze gar nicht erst — das SDK
+    // lehnt nicht-gestreamte Aufrufe ab, sobald die aus max_tokens
+    // errechnete Grenze über zehn Minuten läge. finalMessage() läuft durch
+    // denselben Parser und liefert parsed_output genauso.
     const strom = client.messages.stream({
       model: MODELL,
-      max_tokens: 32000,
+      max_tokens: 16000,
       thinking: { type: 'adaptive' },
       system: SYSTEM_PROMPT,
       messages: [
@@ -124,6 +138,61 @@ export async function etikettLesen(schluessel: string, bild: AufbereitetesBild):
         'Die Antwort kam in unleserlicher Form zurück.',
         'Versuch es noch einmal — meist genügt ein zweiter Anlauf.',
       );
+    }
+
+    return antwort.parsed_output;
+  } catch (fehler) {
+    throw uebersetzeFehler(fehler);
+  }
+}
+
+/**
+ * Holt die erweiterte Sicht — Brauart, Speisen, Verkostung, verwandte Biere.
+ *
+ * Getrennt von etikettLesen(), weil ein Schema mit beidem die Grammatikgrenze
+ * der strukturierten Ausgaben sprengt. Beide Aufrufe laufen parallel; scheitert
+ * dieser hier, bleibt die Etikettzerlegung trotzdem stehen.
+ */
+export async function erweitertLesen(
+  schluessel: string,
+  bild: AufbereitetesBild,
+): Promise<Erweitert> {
+  const client = new Anthropic({ apiKey: schluessel, dangerouslyAllowBrowser: true });
+
+  try {
+    const strom = client.messages.stream({
+      model: MODELL,
+      max_tokens: 16000,
+      thinking: { type: 'adaptive' },
+      system: ERWEITERT_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: bild.medienTyp, data: bild.base64 },
+            },
+            { type: 'text', text: ERWEITERT_FRAGE },
+          ],
+        },
+      ],
+      output_config: { format: zodOutputFormat(ErweitertSchema) },
+    });
+
+    const antwort = await strom.finalMessage();
+
+    if (antwort.stop_reason === 'max_tokens') {
+      throw new EtikettFehler('Die erweiterte Sicht wurde abgeschnitten, bevor sie vollständig war.');
+    }
+    if (antwort.stop_reason === 'refusal') {
+      throw new EtikettFehler(
+        'Die erweiterte Sicht wurde abgelehnt.',
+        antwort.stop_details?.explanation ?? undefined,
+      );
+    }
+    if (!antwort.parsed_output) {
+      throw new EtikettFehler('Die erweiterte Sicht kam in unleserlicher Form zurück.');
     }
 
     return antwort.parsed_output;

@@ -1,7 +1,7 @@
 import './style.css';
 import { bildAufbereiten, BildFehler, type AufbereitetesBild } from './bild';
-import { etikettLesen, EtikettFehler } from './etikett';
-import type { Bereich, Etikett, Etikettelement } from './schema';
+import { erweitertLesen, etikettLesen, EtikettFehler } from './etikett';
+import type { Bereich, Erweitert, Etikett, Etikettelement } from './schema';
 import { FAMILIEN, SORTEN, type Biersorte, type Familie } from './glossar';
 import { glasZeichnen } from './glas';
 
@@ -34,6 +34,9 @@ const kammerStatus = el<HTMLParagraphElement>('kammer-status');
 
 let aktuellesBild: AufbereitetesBild | null = null;
 let laeuft = false;
+/** Zählt die Auswertungen mit, damit eine späte Antwort nicht in einen
+ *  inzwischen ersetzten Befund schreibt. */
+let laufNummer = 0;
 
 /* ------------------------------------------------------- Schlüsselkammer */
 
@@ -181,9 +184,21 @@ lesenTaste.addEventListener('click', async () => {
   lesenTaste.textContent = 'Wird gelesen …';
   wartenZeigen();
 
+  // Beide Aufrufe zugleich starten. Der zweite darf scheitern, ohne die
+  // Etikettzerlegung mitzureißen — deshalb wird er hier nur angestoßen und
+  // erst in den Reitern ausgewertet.
+  const lauf = ++laufNummer;
+  const erweitertVersprechen = erweitertLesen(schluessel, aktuellesBild);
+  // Fängt die Ablehnung ab, damit sie nicht als unbehandelt gemeldet wird,
+  // falls der erste Aufruf vorher scheitert und niemand mehr zuhört.
+  erweitertVersprechen.catch(() => undefined);
+
   try {
-    befundZeichnen(await etikettLesen(schluessel, aktuellesBild));
+    const etikett = await etikettLesen(schluessel, aktuellesBild);
+    if (lauf !== laufNummer) return;
+    befundZeichnen(etikett, erweitertVersprechen);
   } catch (fehler) {
+    if (lauf !== laufNummer) return;
     const f = fehler as EtikettFehler;
     zeigeFehler(f.message ?? 'Unbekannter Fehler', f.rat);
   } finally {
@@ -221,27 +236,11 @@ function wartenZeigen(): void {
 }
 
 function zeigeFehler(titel: string, rat?: string): void {
-  const ziel = abschnittOeffnen();
-  const block = document.createElement('div');
-  block.className = 'fehler';
-
-  const kopf = document.createElement('strong');
-  kopf.className = 'body-lg';
-  kopf.textContent = titel;
-  block.append(kopf);
-
-  if (rat) {
-    const p = document.createElement('p');
-    p.className = 'body-md';
-    p.textContent = rat;
-    block.append(p);
-  }
-
-  ziel.append(block);
+  abschnittOeffnen().append(fehlerblock(titel, rat));
 }
 
 /** Baut den Befund auf. Durchgehend textContent — kein HTML aus der Modellantwort. */
-function befundZeichnen(e: Etikett): void {
+function befundZeichnen(e: Etikett, erweitert: Promise<Erweitert>): void {
   const ziel = abschnittOeffnen();
   const blatt = document.createElement('article');
   blatt.className = 'chronik-blatt';
@@ -289,7 +288,7 @@ function befundZeichnen(e: Etikett): void {
     ]),
   );
 
-  blatt.append(reiterBauen(e));
+  blatt.append(reiterBauen(e, erweitert, laufNummer));
 
   if (e.hinweis.trim()) {
     const hinweis = document.createElement('p');
@@ -303,25 +302,12 @@ function befundZeichnen(e: Etikett): void {
 
 /* --------------------------------------------------------------- Reiter */
 
-interface Reiter {
-  name: string;
-  bauen: () => HTMLElement;
-}
-
 /**
  * Reiter nach ARIA-Muster: eine tablist mit tabs, dazu je ein tabpanel.
  * Pfeiltasten wandern zwischen den Reitern, Pos1/Ende springen an die Enden —
  * so, wie es von einem Reitersatz erwartet wird.
  */
-function reiterBauen(e: Etikett): HTMLElement {
-  const reiter: Reiter[] = [
-    { name: 'Etikett', bauen: () => etikettReiter(e) },
-    { name: 'Brauart', bauen: () => brauartReiter(e) },
-    { name: 'Speisen', bauen: () => speisenReiter(e) },
-    { name: 'Verkostung', bauen: () => verkostungReiter(e) },
-    { name: 'Verwandte', bauen: () => verwandteReiter(e) },
-  ];
-
+function reiterBauen(e: Etikett, erweitert: Promise<Erweitert>, lauf: number): HTMLElement {
   const huelle = document.createElement('div');
   huelle.className = 'reiter';
 
@@ -330,15 +316,25 @@ function reiterBauen(e: Etikett): HTMLElement {
   leiste.setAttribute('role', 'tablist');
   leiste.setAttribute('aria-label', 'Sicht auf das Bier');
 
+  // Der Etikett-Reiter steht schon; die vier übrigen warten auf den zweiten
+  // Aufruf und tragen bis dahin einen Ladehinweis.
+  const namen = ['Etikett', 'Brauart', 'Speisen', 'Verkostung', 'Verwandte'] as const;
+  const bauer: Array<(d: Erweitert) => HTMLElement> = [
+    brauartReiter,
+    speisenReiter,
+    verkostungReiter,
+    verwandteReiter,
+  ];
+
   const tasten: HTMLButtonElement[] = [];
   const felder: HTMLElement[] = [];
 
-  reiter.forEach((r, i) => {
+  namen.forEach((name, i) => {
     const taste = document.createElement('button');
     taste.type = 'button';
     taste.className = 'reitertaste label-caps';
     taste.id = `reiter-${i}`;
-    taste.textContent = r.name;
+    taste.textContent = name;
     taste.setAttribute('role', 'tab');
     taste.setAttribute('aria-controls', `feld-${i}`);
 
@@ -348,13 +344,30 @@ function reiterBauen(e: Etikett): HTMLElement {
     feld.setAttribute('role', 'tabpanel');
     feld.setAttribute('aria-labelledby', `reiter-${i}`);
     feld.setAttribute('tabindex', '0');
-    feld.append(r.bauen());
+    feld.append(i === 0 ? etikettReiter(e) : ladehinweis());
 
     taste.addEventListener('click', () => waehlen(i));
     tasten.push(taste);
     felder.push(feld);
     leiste.append(taste);
   });
+
+  erweitert
+    .then((daten) => {
+      if (lauf !== laufNummer) return;
+      bauer.forEach((bauen, i) => felder[i + 1]!.replaceChildren(bauen(daten)));
+    })
+    .catch((fehler: EtikettFehler) => {
+      if (lauf !== laufNummer) return;
+      for (let i = 1; i < felder.length; i++) {
+        felder[i]!.replaceChildren(
+          fehlerblock(
+            fehler.message ?? 'Die erweiterte Sicht konnte nicht geladen werden.',
+            fehler.rat,
+          ),
+        );
+      }
+    });
 
   function waehlen(i: number, fokus = false): void {
     tasten.forEach((taste, j) => {
@@ -388,6 +401,41 @@ function reiterBauen(e: Etikett): HTMLElement {
   return huelle;
 }
 
+function ladehinweis(): HTMLElement {
+  const block = document.createElement('div');
+  block.className = 'warten';
+
+  const mal = document.createElement('span');
+  mal.className = 'warten-mal';
+  mal.setAttribute('aria-hidden', 'true');
+
+  const text = document.createElement('p');
+  text.className = 'body-md';
+  text.style.margin = '0';
+  text.textContent = 'Wird noch geladen …';
+
+  block.append(mal, text);
+  return block;
+}
+
+function fehlerblock(titel: string, rat?: string): HTMLElement {
+  const block = document.createElement('div');
+  block.className = 'fehler';
+
+  const kopf = document.createElement('strong');
+  kopf.className = 'body-lg';
+  kopf.textContent = titel;
+  block.append(kopf);
+
+  if (rat) {
+    const p = document.createElement('p');
+    p.className = 'body-md';
+    p.textContent = rat;
+    block.append(p);
+  }
+  return block;
+}
+
 function etikettReiter(e: Etikett): HTMLElement {
   const huelle = document.createElement('div');
 
@@ -404,7 +452,7 @@ function etikettReiter(e: Etikett): HTMLElement {
   return huelle;
 }
 
-function brauartReiter(e: Etikett): HTMLElement {
+function brauartReiter(e: Erweitert): HTMLElement {
   const huelle = document.createElement('div');
   huelle.append(textBlock('Das Verfahren', e.brauart.verfahren));
 
@@ -436,7 +484,7 @@ function brauartReiter(e: Etikett): HTMLElement {
   return huelle;
 }
 
-function speisenReiter(e: Etikett): HTMLElement {
+function speisenReiter(e: Erweitert): HTMLElement {
   const huelle = document.createElement('div');
   huelle.append(textBlock('Der Grundsatz', e.speisen.grundsatz));
 
@@ -467,7 +515,7 @@ function speisenReiter(e: Etikett): HTMLElement {
   return huelle;
 }
 
-function verkostungReiter(e: Etikett): HTMLElement {
+function verkostungReiter(e: Erweitert): HTMLElement {
   const huelle = document.createElement('div');
 
   // Temperatur und Glas sind die zwei Angaben, die man vor dem Einschenken
@@ -524,7 +572,7 @@ function verkostungReiter(e: Etikett): HTMLElement {
   return huelle;
 }
 
-function verwandteReiter(e: Etikett): HTMLElement {
+function verwandteReiter(e: Erweitert): HTMLElement {
   const huelle = document.createElement('div');
   const abschnitt = document.createElement('section');
   abschnitt.className = 'chronik-abschnitt';

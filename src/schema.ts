@@ -167,14 +167,6 @@ export const EtikettSchema = z.object({
         'konkret, in einem Atemzug sagbar. Kein Marketing, keine Allgemeinplätze.',
     ),
 
-  /* --- Die erweiterte Sicht, je ein Reiter --------------------------- */
-  brauart: BrauartSchema.describe('Wie dieses Bier gebraut wird'),
-  speisen: SpeisenSchema.describe('Welches Essen dazu passt und warum'),
-  verkostung: VerkostungSchema.describe('Wie es am besten verkostet wird, mit Trinktemperatur'),
-  verwandte: z
-    .array(VerwandtesBierSchema)
-    .describe('Drei bis fünf ähnlich gebraute und ähnlich schmeckende Biere'),
-
   hinweis: z
     .string()
     .describe(
@@ -193,3 +185,24 @@ export type ErlaubterTyp = (typeof ERLAUBTE_TYPEN)[number];
 export function istErlaubterTyp(typ: string): typ is ErlaubterTyp {
   return (ERLAUBTE_TYPEN as readonly string[]).includes(typ);
 }
+
+/**
+ * Die erweiterte Sicht wird in einem zweiten Aufruf geholt.
+ *
+ * Nicht aus Bequemlichkeit: Strukturierte Ausgaben werden serverseitig zu einer
+ * Grammatik kompiliert, und ein Schema mit Etikettzerlegung UND allen vier
+ * Reitern überschreitet deren Größengrenze — die API antwortet dann mit
+ * "The compiled grammar is too large". Zwei Aufrufe mit je einem halb so
+ * großen Schema bleiben darunter, und die Aufteilung hat einen Nebengewinn:
+ * scheitert der zweite Aufruf, bleibt die Etikettzerlegung trotzdem stehen.
+ */
+export const ErweitertSchema = z.object({
+  brauart: BrauartSchema.describe('Wie dieses Bier gebraut wird'),
+  speisen: SpeisenSchema.describe('Welches Essen dazu passt und warum'),
+  verkostung: VerkostungSchema.describe('Wie es am besten verkostet wird, mit Trinktemperatur'),
+  verwandte: z
+    .array(VerwandtesBierSchema)
+    .describe('Drei bis fünf ähnlich gebraute und ähnlich schmeckende Biere'),
+});
+
+export type Erweitert = z.infer<typeof ErweitertSchema>;
