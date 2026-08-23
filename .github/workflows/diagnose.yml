@@ -1,0 +1,72 @@
+name: Domain diagnostizieren
+
+# Sieht sich eine Domain aus dem offenen Internet an — demselben Blickpunkt,
+# den ein Handy im Mobilfunknetz hat. Nützlich genau dann, wenn eine Seite
+# "bei mir" funktioniert und anderswo nicht: Dann unterscheiden sich die
+# Antworten, und der Unterschied ist die Auskunft.
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: 'Domain ohne Schema'
+        type: string
+        required: true
+        default: 'bierexpert.de'
+
+permissions:
+  contents: read
+
+jobs:
+  nachsehen:
+    name: Aus dem offenen Internet nachsehen
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Namensauflösung
+        env:
+          HOST: ${{ inputs.host }}
+        run: |
+          echo "════ Namensserver der Domain ════"
+          dig +short NS "$HOST" || true
+          echo
+          echo "════ Adressen ════"
+          echo "A:    $(dig +short A "$HOST" | tr '\n' ' ')"
+          echo "AAAA: $(dig +short AAAA "$HOST" | tr '\n' ' ')"
+          echo
+          echo "════ Wem gehören die Adressen? ════"
+          for ip in $(dig +short A "$HOST"); do
+            echo "--- $ip ---"
+            whois "$ip" 2>/dev/null | grep -iE '^(orgname|org-name|netname|descr|organisation):' | head -4 || echo "  (keine Auskunft)"
+          done
+
+      - name: Antwort über http
+        env:
+          HOST: ${{ inputs.host }}
+        run: |
+          echo "════ http://$HOST ════"
+          curl -sS -D - -o koerper.txt --max-time 20 "http://$HOST" 2>&1 | head -20 || true
+          echo
+          echo "──── Anfang des Inhalts ────"
+          head -c 300 koerper.txt 2>/dev/null || echo "(leer)"
+          echo
+
+      - name: Antwort über https
+        env:
+          HOST: ${{ inputs.host }}
+        run: |
+          echo "════ https://$HOST ════"
+          curl -sS -D - -o koerper.txt --max-time 20 "https://$HOST" 2>&1 | head -20 || true
+          echo
+          echo "──── Anfang des Inhalts ────"
+          head -c 300 koerper.txt 2>/dev/null || echo "(leer)"
+          echo
+
+      - name: Zertifikat
+        env:
+          HOST: ${{ inputs.host }}
+        run: |
+          echo "════ Wer hat das Zertifikat ausgestellt, und für wen? ════"
+          echo | timeout 20 openssl s_client -connect "$HOST:443" -servername "$HOST" 2>/dev/null \
+            | openssl x509 -noout -subject -issuer -dates 2>/dev/null \
+            || echo "Kein Zertifikat erhalten — https antwortet nicht."
