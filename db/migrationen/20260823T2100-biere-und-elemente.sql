@@ -22,10 +22,15 @@ CREATE TABLE biere (
   name             VARCHAR(190) NOT NULL,
   ort              VARCHAR(190),
   land             VARCHAR(120),
-  gegruendet       VARCHAR(60),
-  stil             VARCHAR(160),
-  stammwuerze      VARCHAR(60),
-  alkohol          VARCHAR(60),
+  -- Diese vier bewusst großzügig: Das Modell hängt Herkunftsvermerke an die
+  -- Werte an, statt nackte Zahlen zu liefern — "5,1 % vol (aus Kenntnis
+  -- ergänzt, auf dem Foto nicht lesbar)" sind schon 59 Zeichen. Ein knapp
+  -- bemessenes Feld schneidet genau die Einschränkung ab, die den Wert
+  -- ehrlich macht.
+  gegruendet       VARCHAR(190),
+  stil             VARCHAR(190),
+  stammwuerze      VARCHAR(190),
+  alkohol          VARCHAR(190),
 
   farbwahl         TEXT,
   schriftbild      TEXT,

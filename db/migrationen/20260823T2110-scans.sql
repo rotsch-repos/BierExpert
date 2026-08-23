@@ -28,6 +28,17 @@ CREATE TABLE scans (
   gelesen_brauerei VARCHAR(190),
   gelesen_name     VARCHAR(190),
 
+  -- Wie sicher sich das Modell bei der Zuordnung war: hoch, mittel oder
+  -- niedrig. Gehört hierher und nicht zum Bier — sie sagt etwas über
+  -- DIESE Aufnahme aus, nicht über das Bier. Dasselbe Bier scharf
+  -- fotografiert ergibt "hoch", verwackelt "niedrig".
+  sicherheit       VARCHAR(20),
+
+  -- Was auf DIESEM Foto nicht lesbar war und deshalb gedeutet statt
+  -- gewusst wurde. Ebenfalls aufnahmebezogen: Bei einem zweiten Foto
+  -- derselben Flasche ist womöglich genau das lesbar, was hier fehlte.
+  hinweis          TEXT,
+
   dauer_ms       INT UNSIGNED,
   modell         VARCHAR(120),
   fehler         VARCHAR(255),
