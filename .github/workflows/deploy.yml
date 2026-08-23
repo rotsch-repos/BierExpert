@@ -174,14 +174,34 @@ jobs:
       # Ob die Seite lädt, sagt nichts darüber, ob eine Auswertung durchkäme.
       # Dieser Endpunkt beantwortet in einem Aufruf, ob PHP, Datenbank und
       # Modell stehen — ohne ihn beginnt jede Fehlersuche mit Raten.
+      # always(): Solange das Zertifikat für die Domain aussteht, scheitert der
+      # Schritt davor — und gerade dann will man wissen, ob die Endpunkte
+      # stehen. Ein Befund, der nur bei ohnehin grünen Läufen erhoben wird,
+      # ist keiner.
       - name: Nachsehen, ob die Endpunkte bereit sind
-        if: ${{ vars.DEPLOY_URL != '' && !inputs.probelauf }}
+        if: ${{ always() && vars.DEPLOY_URL != '' && !inputs.probelauf }}
         continue-on-error: true
         run: |
-          befund=$(curl -sS -L -m 60 "${{ vars.DEPLOY_URL }}/api/gesundheit.php" || echo '{}')
-          echo "$befund" | python3 -m json.tool 2>/dev/null || echo "$befund"
+          adresse="${{ vars.DEPLOY_URL }}/api/gesundheit.php"
+          befund=$(curl -sS -L -m 60 "$adresse" 2>/dev/null || echo '')
 
-          bereit=$(echo "$befund" | python3 -c \
+          # Dieselbe Trennung wie beim Rauchtest: Antwortet https nicht, liegt
+          # es am fehlenden Zertifikat und nicht an den Endpunkten. Über http
+          # sind sie trotzdem zu befragen.
+          if [ -z "$befund" ]; then
+            case "$adresse" in
+              https://*)
+                adresse="http://${adresse#https://}"
+                echo "Über https keine Antwort — dasselbe über http:"
+                befund=$(curl -sS -L -m 60 "$adresse" 2>/dev/null || echo '')
+                ;;
+            esac
+          fi
+
+          echo "$adresse"
+          echo "$befund" | python3 -m json.tool 2>/dev/null || echo "${befund:-(keine Antwort)}"
+
+          bereit=$(printf '%s' "$befund" | python3 -c \
             'import json,sys; print(json.load(sys.stdin).get("bereit", False))' 2>/dev/null || echo False)
 
           # Bewusst kein harter Abbruch: Die Auslieferung ist an dieser
