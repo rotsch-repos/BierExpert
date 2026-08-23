@@ -1,0 +1,73 @@
+name: Hostschlüssel abrufen
+
+# Einmalige Hilfe zum Einrichten: holt den Fingerabdruck des Zielservers und
+# gibt ihn aus, damit er als Secret SSH_KNOWN_HOSTS hinterlegt werden kann.
+#
+# Warum nicht einfach lokal ssh-keyscan? Weil ein älterer OpenSSH-Client den
+# Schlüsselaustausch neuerer Server nicht beherrscht und dann nichts liefert.
+# Der Runner bringt ein aktuelles OpenSSH mit.
+#
+# Das ist ausdrücklich KEIN Ersatz für das Prüfen: Die Ausgabe enthält auch
+# die Fingerabdrücke. Vergleiche sie mit dem, was dein funktionierender
+# SSH-Zugang zeigt, bevor du sie hinterlegst — sonst hinterlegst du
+# ungeprüft, was auch immer geantwortet hat.
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: 'Servername'
+        type: string
+        required: true
+        default: 'atozadec.myhostpoint.ch'
+      port:
+        description: 'Port'
+        type: string
+        required: false
+        default: '22'
+
+permissions:
+  contents: read
+
+jobs:
+  abrufen:
+    name: Fingerabdruck holen
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: OpenSSH-Fassung des Runners
+        run: ssh -V
+
+      - name: Abrufen
+        env:
+          HOST: ${{ inputs.host }}
+          PORT: ${{ inputs.port }}
+        run: |
+          set -euo pipefail
+
+          # -H würde die Namen hashen. Ungehasht ist hier besser: So lässt
+          # sich später im Secret nachsehen, für welchen Host der Eintrag gilt.
+          if ! ssh-keyscan -p "$PORT" -t rsa,ecdsa,ed25519 "$HOST" > schluessel.txt 2> fehler.txt; then
+            echo "::error::ssh-keyscan fehlgeschlagen"
+            cat fehler.txt
+            exit 1
+          fi
+
+          # Kommentarzeilen zählen nicht als Schlüssel.
+          if ! grep -qvE '^#' schluessel.txt || [ ! -s schluessel.txt ]; then
+            echo "::error::Kein Hostschlüssel erhalten. Meldung des Abrufs:"
+            cat fehler.txt
+            exit 1
+          fi
+
+          echo "════════════════════════════════════════════════════════════"
+          echo "  Fingerabdrücke — mit deinem SSH-Zugang vergleichen:"
+          echo "════════════════════════════════════════════════════════════"
+          ssh-keygen -lf schluessel.txt
+
+          echo
+          echo "════════════════════════════════════════════════════════════"
+          echo "  Das hier vollständig als Secret SSH_KNOWN_HOSTS hinterlegen:"
+          echo "════════════════════════════════════════════════════════════"
+          grep -vE '^#' schluessel.txt
+          echo "════════════════════════════════════════════════════════════"
