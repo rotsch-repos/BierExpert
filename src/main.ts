@@ -2,6 +2,8 @@ import './style.css';
 import { bildAufbereiten, BildFehler, type AufbereitetesBild } from './bild';
 import { etikettLesen, EtikettFehler } from './etikett';
 import type { Bereich, Etikett, Etikettelement } from './schema';
+import { FAMILIEN, SORTEN, type Biersorte, type Familie } from './glossar';
+import { glasZeichnen } from './glas';
 
 const SPEICHER_SCHLUESSEL = 'bierexpert.apiSchluessel';
 
@@ -287,35 +289,7 @@ function befundZeichnen(e: Etikett): void {
     ]),
   );
 
-  /* --- Kern: die Elemente einzeln, jeweils auf dem Foto markiert --- */
-  if (e.elemente.length && aktuellesBild) {
-    blatt.append(elementeBauen(e.elemente, aktuellesBild.vorschauUrl));
-  }
-
-  blatt.append(textBlock('Farbwahl', e.farbwahl));
-  blatt.append(textBlock('Schriftbild', e.schriftbild));
-  blatt.append(textBlock('Geschichtlicher Hintergrund', e.hintergrund));
-
-  /* --- Der Zweck der Übung --- */
-  if (e.gespraechsstoff.length) {
-    const abschnitt = document.createElement('section');
-    abschnitt.className = 'chronik-abschnitt';
-
-    const h = document.createElement('h4');
-    h.className = 'label-caps';
-    h.textContent = 'Für die Runde';
-    abschnitt.append(h);
-
-    const liste = document.createElement('ul');
-    liste.className = 'merkmale body-lg';
-    for (const satz of e.gespraechsstoff) {
-      const li = document.createElement('li');
-      li.textContent = satz;
-      liste.append(li);
-    }
-    abschnitt.append(liste);
-    blatt.append(abschnitt);
-  }
+  blatt.append(reiterBauen(e));
 
   if (e.hinweis.trim()) {
     const hinweis = document.createElement('p');
@@ -325,6 +299,288 @@ function befundZeichnen(e: Etikett): void {
   }
 
   ziel.append(blatt);
+}
+
+/* --------------------------------------------------------------- Reiter */
+
+interface Reiter {
+  name: string;
+  bauen: () => HTMLElement;
+}
+
+/**
+ * Reiter nach ARIA-Muster: eine tablist mit tabs, dazu je ein tabpanel.
+ * Pfeiltasten wandern zwischen den Reitern, Pos1/Ende springen an die Enden —
+ * so, wie es von einem Reitersatz erwartet wird.
+ */
+function reiterBauen(e: Etikett): HTMLElement {
+  const reiter: Reiter[] = [
+    { name: 'Etikett', bauen: () => etikettReiter(e) },
+    { name: 'Brauart', bauen: () => brauartReiter(e) },
+    { name: 'Speisen', bauen: () => speisenReiter(e) },
+    { name: 'Verkostung', bauen: () => verkostungReiter(e) },
+    { name: 'Verwandte', bauen: () => verwandteReiter(e) },
+  ];
+
+  const huelle = document.createElement('div');
+  huelle.className = 'reiter';
+
+  const leiste = document.createElement('div');
+  leiste.className = 'reiterleiste';
+  leiste.setAttribute('role', 'tablist');
+  leiste.setAttribute('aria-label', 'Sicht auf das Bier');
+
+  const tasten: HTMLButtonElement[] = [];
+  const felder: HTMLElement[] = [];
+
+  reiter.forEach((r, i) => {
+    const taste = document.createElement('button');
+    taste.type = 'button';
+    taste.className = 'reitertaste label-caps';
+    taste.id = `reiter-${i}`;
+    taste.textContent = r.name;
+    taste.setAttribute('role', 'tab');
+    taste.setAttribute('aria-controls', `feld-${i}`);
+
+    const feld = document.createElement('section');
+    feld.className = 'reiterfeld';
+    feld.id = `feld-${i}`;
+    feld.setAttribute('role', 'tabpanel');
+    feld.setAttribute('aria-labelledby', `reiter-${i}`);
+    feld.setAttribute('tabindex', '0');
+    feld.append(r.bauen());
+
+    taste.addEventListener('click', () => waehlen(i));
+    tasten.push(taste);
+    felder.push(feld);
+    leiste.append(taste);
+  });
+
+  function waehlen(i: number, fokus = false): void {
+    tasten.forEach((taste, j) => {
+      const aktiv = i === j;
+      taste.setAttribute('aria-selected', String(aktiv));
+      // Nur der aktive Reiter ist per Tabulator erreichbar; zwischen den
+      // Reitern wandert man mit den Pfeiltasten.
+      taste.tabIndex = aktiv ? 0 : -1;
+      taste.classList.toggle('aktiv', aktiv);
+      felder[j]!.hidden = !aktiv;
+    });
+    if (fokus) tasten[i]!.focus();
+  }
+
+  leiste.addEventListener('keydown', (ev) => {
+    const jetzt = tasten.findIndex((taste) => taste.getAttribute('aria-selected') === 'true');
+    const letzter = tasten.length - 1;
+    const ziel =
+      ev.key === 'ArrowRight' ? (jetzt + 1) % tasten.length
+      : ev.key === 'ArrowLeft' ? (jetzt - 1 + tasten.length) % tasten.length
+      : ev.key === 'Home' ? 0
+      : ev.key === 'End' ? letzter
+      : -1;
+    if (ziel < 0) return;
+    ev.preventDefault();
+    waehlen(ziel, true);
+  });
+
+  huelle.append(leiste, ...felder);
+  waehlen(0);
+  return huelle;
+}
+
+function etikettReiter(e: Etikett): HTMLElement {
+  const huelle = document.createElement('div');
+
+  if (e.elemente.length && aktuellesBild) {
+    huelle.append(elementeBauen(e.elemente, aktuellesBild.vorschauUrl));
+  }
+  huelle.append(textBlock('Farbwahl', e.farbwahl));
+  huelle.append(textBlock('Schriftbild', e.schriftbild));
+  huelle.append(textBlock('Geschichtlicher Hintergrund', e.hintergrund));
+
+  if (e.gespraechsstoff.length) {
+    huelle.append(strichliste('Für die Runde', e.gespraechsstoff));
+  }
+  return huelle;
+}
+
+function brauartReiter(e: Etikett): HTMLElement {
+  const huelle = document.createElement('div');
+  huelle.append(textBlock('Das Verfahren', e.brauart.verfahren));
+
+  const zutaten = document.createElement('section');
+  zutaten.className = 'chronik-abschnitt';
+  const h = document.createElement('h4');
+  h.className = 'label-caps';
+  h.textContent = 'Zutaten und ihre Rolle';
+  zutaten.append(h);
+
+  const liste = document.createElement('dl');
+  liste.className = 'rollenliste';
+  for (const z of e.brauart.zutaten) {
+    const zeile = document.createElement('div');
+    const dt = document.createElement('dt');
+    dt.className = 'headline-sm';
+    dt.textContent = z.was;
+    const dd = document.createElement('dd');
+    dd.className = 'body-md';
+    dd.textContent = z.rolle;
+    zeile.append(dt, dd);
+    liste.append(zeile);
+  }
+  zutaten.append(liste);
+  huelle.append(zutaten);
+
+  huelle.append(textBlock('Gärführung', e.brauart.gaerung));
+  huelle.append(textBlock('Was es hier ausmacht', e.brauart.besonderheit));
+  return huelle;
+}
+
+function speisenReiter(e: Etikett): HTMLElement {
+  const huelle = document.createElement('div');
+  huelle.append(textBlock('Der Grundsatz', e.speisen.grundsatz));
+
+  const paare = document.createElement('section');
+  paare.className = 'chronik-abschnitt';
+  const h = document.createElement('h4');
+  h.className = 'label-caps';
+  h.textContent = 'Das passt';
+  paare.append(h);
+
+  const liste = document.createElement('dl');
+  liste.className = 'rollenliste';
+  for (const paar of e.speisen.paare) {
+    const zeile = document.createElement('div');
+    const dt = document.createElement('dt');
+    dt.className = 'headline-sm';
+    dt.textContent = paar.gericht;
+    const dd = document.createElement('dd');
+    dd.className = 'body-md';
+    dd.textContent = paar.warum;
+    zeile.append(dt, dd);
+    liste.append(zeile);
+  }
+  paare.append(liste);
+  huelle.append(paare);
+
+  huelle.append(textBlock('Besser nicht', e.speisen.meiden));
+  return huelle;
+}
+
+function verkostungReiter(e: Etikett): HTMLElement {
+  const huelle = document.createElement('div');
+
+  // Temperatur und Glas sind die zwei Angaben, die man vor dem Einschenken
+  // braucht — sie stehen deshalb zusammen und herausgehoben ganz oben,
+  // die Begründungen folgen darunter im Fließtext.
+  const servier = document.createElement('div');
+  servier.className = 'servier';
+
+  for (const [marke, wert, gross] of [
+    ['Beste Trinktemperatur', e.verkostung.temperatur, true],
+    ['Glas', e.verkostung.glas, false],
+  ] as const) {
+    const feld = document.createElement('div');
+
+    const m = document.createElement('p');
+    m.className = 'servier-marke label-caps';
+    m.textContent = marke;
+
+    const w = document.createElement('p');
+    w.className = `servier-wert ${gross ? 'display-lg' : 'headline-sm'}`;
+    w.textContent = wert;
+
+    feld.append(m, w);
+    servier.append(feld);
+  }
+
+  huelle.append(servier);
+  huelle.append(textBlock('Warum diese Spanne', e.verkostung.temperatur_warum));
+  huelle.append(textBlock('Warum dieses Glas', e.verkostung.glas_warum));
+  huelle.append(textBlock('Einschenken', e.verkostung.einschenken));
+
+  const schritte = document.createElement('section');
+  schritte.className = 'chronik-abschnitt';
+  const h = document.createElement('h4');
+  h.className = 'label-caps';
+  h.textContent = 'Schritt für Schritt';
+  schritte.append(h);
+
+  const liste = document.createElement('ol');
+  liste.className = 'schrittliste';
+  for (const s of e.verkostung.schritte) {
+    const li = document.createElement('li');
+    const name = document.createElement('p');
+    name.className = 'schritt-name headline-sm';
+    name.textContent = s.schritt;
+    const was = document.createElement('p');
+    was.className = 'body-md';
+    was.textContent = s.was;
+    li.append(name, was);
+    liste.append(li);
+  }
+  schritte.append(liste);
+  huelle.append(schritte);
+  return huelle;
+}
+
+function verwandteReiter(e: Etikett): HTMLElement {
+  const huelle = document.createElement('div');
+  const abschnitt = document.createElement('section');
+  abschnitt.className = 'chronik-abschnitt';
+
+  const h = document.createElement('h4');
+  h.className = 'label-caps';
+  h.textContent = `Ähnlich gebraut, ähnlich im Geschmack · ${e.verwandte.length}`;
+  abschnitt.append(h);
+
+  const liste = document.createElement('ul');
+  liste.className = 'verwandte';
+
+  for (const v of e.verwandte) {
+    const li = document.createElement('li');
+    li.className = 'verwandtes';
+
+    const name = document.createElement('p');
+    name.className = 'verwandtes-name headline-sm';
+    name.textContent = v.name;
+
+    const her = document.createElement('p');
+    her.className = 'verwandtes-herkunft label-caps';
+    her.textContent = [v.brauerei, v.land].filter(Boolean).join(' · ');
+
+    const warum = document.createElement('p');
+    warum.className = 'body-md';
+    warum.textContent = v.warum;
+
+    const anders = document.createElement('p');
+    anders.className = 'verwandtes-anders body-md';
+    anders.textContent = `Anders: ${v.unterschied}`;
+
+    li.append(name, her, warum, anders);
+    liste.append(li);
+  }
+
+  abschnitt.append(liste);
+  huelle.append(abschnitt);
+  return huelle;
+}
+
+function strichliste(ueberschrift: string, saetze: readonly string[]): HTMLElement {
+  const abschnitt = document.createElement('section');
+  abschnitt.className = 'chronik-abschnitt';
+  const h = document.createElement('h4');
+  h.className = 'label-caps';
+  h.textContent = ueberschrift;
+  const liste = document.createElement('ul');
+  liste.className = 'merkmale body-lg';
+  for (const satz of saetze) {
+    const li = document.createElement('li');
+    li.textContent = satz;
+    liste.append(li);
+  }
+  abschnitt.append(h, liste);
+  return abschnitt;
 }
 
 function elementeBauen(
@@ -490,3 +746,131 @@ if (vorhanden) {
   schluesselFeld.value = vorhanden;
   melden('Ein Schlüssel liegt verwahrt.', 'gut');
 }
+
+/* ==========================================================================
+   Bierglossar — statisch, ohne API-Aufruf
+   ========================================================================== */
+
+const glossarZiel = el<HTMLDivElement>('glossar');
+const familienwahl = el<HTMLDivElement>('familienwahl');
+
+let familienfilter: Familie | 'alle' = 'alle';
+
+function glossarZeichnen(): void {
+  const sichtbar =
+    familienfilter === 'alle' ? SORTEN : SORTEN.filter((s) => s.familie === familienfilter);
+
+  glossarZiel.replaceChildren();
+
+  for (const { name, erklaerung } of FAMILIEN) {
+    const dieser = sichtbar.filter((s) => s.familie === name);
+    if (!dieser.length) continue;
+
+    const gruppe = document.createElement('section');
+    gruppe.className = 'familie';
+
+    const kopf = document.createElement('div');
+    kopf.className = 'familie-kopf';
+
+    const h = document.createElement('h3');
+    h.className = 'headline-sm';
+    h.textContent = name;
+
+    const wie = document.createElement('p');
+    wie.className = 'body-md';
+    wie.textContent = erklaerung;
+
+    kopf.append(h, wie);
+    gruppe.append(kopf);
+
+    const gitter = document.createElement('div');
+    gitter.className = 'sorten';
+    for (const sorte of dieser) gitter.append(sorteBauen(sorte));
+    gruppe.append(gitter);
+
+    glossarZiel.append(gruppe);
+  }
+}
+
+function sorteBauen(sorte: Biersorte): HTMLElement {
+  const karte = document.createElement('article');
+  karte.className = 'sorte';
+
+  const bild = document.createElement('div');
+  bild.className = 'sorte-glas';
+  bild.append(glasZeichnen(sorte));
+
+  const rumpf = document.createElement('div');
+  rumpf.className = 'sorte-rumpf';
+
+  const name = document.createElement('h4');
+  name.className = 'sorte-name headline-sm';
+  name.textContent = sorte.name;
+
+  const herkunft = document.createElement('p');
+  herkunft.className = 'sorte-herkunft label-caps';
+  herkunft.textContent = sorte.herkunft;
+
+  const zahlen = document.createElement('dl');
+  zahlen.className = 'sorte-zahlen';
+  for (const [begriff, wert] of [
+    ['Stammwürze', sorte.stammwuerze],
+    ['Alkohol', sorte.alkohol],
+    ['Bittere', sorte.bittere],
+  ] as const) {
+    const zelle = document.createElement('div');
+    const dt = document.createElement('dt');
+    dt.className = 'label-caps';
+    dt.textContent = begriff;
+    const dd = document.createElement('dd');
+    dd.className = 'mono-data';
+    dd.textContent = wert;
+    zelle.append(dt, dd);
+    zahlen.append(zelle);
+  }
+
+  const charakter = document.createElement('p');
+  charakter.className = 'body-md';
+  charakter.textContent = sorte.charakter;
+
+  const unterschied = document.createElement('p');
+  unterschied.className = 'sorte-unterschied body-md';
+  unterschied.textContent = sorte.unterschied;
+
+  const beispiel = document.createElement('p');
+  beispiel.className = 'sorte-beispiel mono-data';
+  beispiel.textContent = `Bekannt: ${sorte.beispiel}`;
+
+  rumpf.append(name, herkunft, zahlen, charakter, unterschied, beispiel);
+  karte.append(bild, rumpf);
+  return karte;
+}
+
+function familienwahlBauen(): void {
+  const wahlen: ReadonlyArray<{ wert: Familie | 'alle'; name: string }> = [
+    { wert: 'alle', name: `Alle · ${SORTEN.length}` },
+    ...FAMILIEN.map((f) => ({
+      wert: f.name,
+      name: `${f.name} · ${SORTEN.filter((s) => s.familie === f.name).length}`,
+    })),
+  ];
+
+  for (const wahl of wahlen) {
+    const taste = document.createElement('button');
+    taste.type = 'button';
+    taste.className = 'familientaste label-caps';
+    taste.textContent = wahl.name;
+    taste.setAttribute('aria-pressed', String(familienfilter === wahl.wert));
+    taste.addEventListener('click', () => {
+      familienfilter = wahl.wert;
+      for (const andere of familienwahl.querySelectorAll('button')) {
+        andere.setAttribute('aria-pressed', String(andere === taste));
+      }
+      glossarZeichnen();
+    });
+    familienwahl.append(taste);
+  }
+}
+
+familienwahlBauen();
+glossarZeichnen();

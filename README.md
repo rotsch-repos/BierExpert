@@ -20,6 +20,15 @@ Keine Erzählung über das Bier, sondern eine **Zerlegung des Etiketts**:
 4. **Geschichtlicher Hintergrund** von Brauerei und Etikett
 5. **Für die Runde** — drei bis fünf Sätze, die am Tisch tatsächlich überraschen
 
+Dazu vier weitere Reiter mit der erweiterten Sicht auf das Bier:
+
+| Reiter         | Inhalt                                                                    |
+| -------------- | ------------------------------------------------------------------------- |
+| **Brauart**    | Verfahren, Zutaten mit ihrer jeweiligen Rolle, Gärführung                  |
+| **Speisen**    | Der Grundsatz dahinter, konkrete Gerichte mit Begründung, und was nicht passt |
+| **Verkostung** | Beste Trinktemperatur mit Begründung, Glas, Einschenken, Schritt für Schritt |
+| **Verwandte**  | Ähnlich gebraute Biere — je mit Ähnlichkeit *und* Unterschied              |
+
 Ein Feld „Zuordnung" zeigt an, wie sicher sich das Modell ist; gedeutete statt
 gewusste Elemente werden offen als solche benannt.
 
@@ -31,6 +40,12 @@ gewusste Elemente werden offen als solche benannt.
    Bild an die Anthropic Messages API (`claude-opus-5`, Vision).
 3. Die Antwort kommt als strukturiertes JSON zurück — per `output_config.format`
    gegen ein Zod-Schema erzwungen — und wird gerendert.
+
+Der Aufruf läuft **gestreamt** (`messages.stream()` statt `messages.parse()`).
+Das ist keine Stilfrage: Bei `max_tokens: 32000` lehnt das SDK einen
+nicht-gestreamten Aufruf ab, weil die daraus errechnete Zeitgrenze über den
+erlaubten zehn Minuten läge. `finalMessage()` läuft durch denselben Parser und
+liefert `parsed_output` genauso.
 
 ### Die Fundstellen auf dem Foto
 
@@ -45,6 +60,30 @@ des Bildes werden hineingeklemmt, und ein Bereich, der danach zu klein ist,
 praktisch das ganze Bild umfasst oder keine gültigen Zahlen enthält, führt zu
 **keiner** Markierung — eine Markierung an der falschen Stelle wäre schlechter
 als gar keine. Das Foto wird in dem Fall abgeblendet dargestellt.
+
+## Bierglossar
+
+Ein eigener Abschnitt, unabhängig vom Foto: 19 Sorten in drei Gärungsfamilien
+(untergärig, obergärig, spontan & sauer), jede mit Stammwürze, Alkohol, Bittere,
+Charakter — und dem Feld **Unterschied**, das sie gegen ihre nächsten Nachbarn
+abgrenzt. Filterbar nach Familie.
+
+Die Daten stehen statisch in `src/glossar.ts`; ein API-Aufruf wäre hier falsch,
+weil sich Stilgrundlagen nicht von Foto zu Foto ändern.
+
+### Warum gezeichnete Gläser statt Fotos
+
+Fotos echter Markenbiere liegen dem Projekt nicht bei, und fremde Markenfotos
+einzubinden wäre rechtlich heikel. Stattdessen zeichnet `src/glas.ts` jede Sorte
+im typischen Glas: Glasform, Bierfarbe aus dem EBC-Bereich und Schaumhöhe sind
+ohnehin genau die Merkmale, an denen man eine Sorte im Glas erkennt. Sieben
+Glasformen (Tulpe, Weizenglas, Stange, Seidel, Kelch, Nonic Pint, Schwenker)
+stehen als Baupläne bereit; die Füllung wird per `clipPath` auf den Umriss
+beschnitten, damit sie der Glasform folgt. Das bekannte Beispielbier steht
+namentlich in der Karte.
+
+Sollen echte Produktfotos hinein, brauchst du die Rechte daran — dann genügt es,
+`glasZeichnen` durch ein `<img>` zu ersetzen.
 
 ## Sprachwahl
 
@@ -134,6 +173,8 @@ ein Etikett fotografieren.
 | `src/bild.ts`      | Bild einlesen, herunterskalieren, als Base64 aufbereiten       |
 | `src/etikett.ts`   | Der Anthropic-Aufruf samt Fehlerübersetzung                    |
 | `src/schema.ts`    | Zod-Schema — Laufzeitprüfung und Typ in einem                  |
+| `src/glossar.ts`   | Die Sortendaten des Bierglossars                               |
+| `src/glas.ts`      | Zeichnet ein Bierglas als SVG: Form, Farbe, Schaumkrone        |
 | `public/logo.svg`  | Logo (derzeit Platzhalter, siehe oben)                         |
 
 ## Grenzen

@@ -576,3 +576,254 @@ a:hover { color: var(--on-secondary-container); }
 @media (max-width: 40rem) {
   .element { padding: var(--space-2); }
 }
+
+/* ==========================================================================
+   Reiter — die erweiterte Sicht auf das Bier
+   ========================================================================== */
+
+.reiter { margin-top: var(--space-4); }
+
+.reiterleiste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  border-bottom: var(--border-hairline);
+}
+
+.reitertaste {
+  padding: var(--space-2) var(--space-3);
+  color: var(--on-surface-variant);
+  background: transparent;
+  border: none;
+  /* Kantig mit weichen Ecken nach oben — keine Pille. */
+  border-radius: var(--rounded) var(--rounded) 0 0;
+  /* Platzhalter in der Farbe des Untergrunds, damit die Zeile beim Wechsel
+     nicht um zwei Pixel springt. */
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.reitertaste:hover { color: var(--on-surface); background: var(--surface-container); }
+
+.reitertaste.aktiv {
+  color: var(--primary);
+  border-bottom-color: var(--secondary);
+}
+
+.reitertaste:focus-visible { outline: 2px solid var(--secondary); outline-offset: -2px; }
+
+.reiterfeld:focus-visible { outline: 2px solid var(--secondary); outline-offset: var(--space-1); }
+
+.reiterfeld > div > .chronik-abschnitt:first-child { margin-top: 0; }
+
+/* --- Zutaten, Speisepaare: Begriff und Erläuterung --- */
+
+.rollenliste { margin: 0; display: grid; gap: var(--space-2); }
+
+.rollenliste > div {
+  padding: var(--space-2);
+  background: var(--surface-container-low);
+  border: var(--border-hairline);
+  border-radius: var(--rounded-lg);
+}
+
+.rollenliste dt { margin: 0 0 var(--space-1); color: var(--primary); }
+.rollenliste dd { margin: 0; max-width: 68ch; color: var(--on-surface-variant); }
+
+/* --- Servieren: Temperatur und Glas, die zwei Angaben vor dem Einschenken --- */
+
+.servier {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+  background: var(--tertiary-fixed);
+  border: 1px solid var(--tertiary-fixed-dim);
+  border-radius: var(--rounded-lg);
+}
+
+.servier-marke { margin: 0 0 var(--space-1); color: var(--on-tertiary-fixed-variant); }
+.servier-wert { margin: 0; color: var(--on-tertiary-fixed); }
+
+/* --- Verkostung Schritt für Schritt --- */
+
+.schrittliste {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: schritt;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.schrittliste li {
+  counter-increment: schritt;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-5);
+  position: relative;
+  background: var(--surface-container-low);
+  border: var(--border-hairline);
+  border-radius: var(--rounded-lg);
+}
+
+.schrittliste li::before {
+  content: counter(schritt);
+  position: absolute;
+  left: var(--space-2);
+  top: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--outline);
+}
+
+.schritt-name { margin: 0 0 var(--space-1); color: var(--primary); }
+.schrittliste .body-md { margin: 0; max-width: 68ch; color: var(--on-surface-variant); }
+
+/* --- Verwandte Biere --- */
+
+.verwandte {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-2);
+}
+
+.verwandtes {
+  padding: var(--space-3);
+  background: var(--surface-container-low);
+  border: var(--border-hairline);
+  border-radius: var(--rounded-lg);
+}
+
+.verwandtes-name { margin: 0; color: var(--primary); }
+.verwandtes-herkunft { margin: var(--space-1) 0 var(--space-2); color: var(--secondary); }
+.verwandtes .body-md { margin: 0; color: var(--on-surface-variant); }
+
+/* Gleiche Spezifitaet wie .verwandtes .body-md darueber, steht aber spaeter
+   und gewinnt deshalb ohne Ueberschreib-Flag. */
+.verwandtes .verwandtes-anders {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--border-hairline);
+}
+
+/* ==========================================================================
+   Bierglossar
+   ========================================================================== */
+
+.glossar-einleitung { margin-top: 0; }
+
+.familienwahl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 var(--space-5);
+}
+
+.familientaste {
+  padding: var(--space-1) var(--space-2);
+  color: var(--on-surface-variant);
+  background: transparent;
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--rounded);
+  cursor: pointer;
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+
+.familientaste:hover { color: var(--on-surface); background: var(--surface-container); }
+
+.familientaste[aria-pressed='true'] {
+  color: var(--on-primary);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.familientaste:focus-visible { outline: 2px solid var(--secondary); outline-offset: 2px; }
+
+.familie { margin-bottom: var(--space-8); }
+
+.familie-kopf {
+  max-width: 68ch;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-hairline);
+}
+
+.familie-kopf h3 { margin: 0 0 var(--space-1); color: var(--primary); }
+.familie-kopf p { margin: 0; color: var(--on-surface-variant); }
+
+.sorten {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-2);
+}
+
+.sorte {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-container-lowest);
+  border: var(--border-hairline);
+  border-radius: var(--rounded-lg);
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.sorte:hover { border-color: var(--outline); box-shadow: var(--elevation-hover); }
+
+.sorte-glas { flex: 0 0 auto; }
+
+.glas { display: block; width: 76px; height: auto; }
+
+/* Dünner Strich, nie gefüllt — wie alle Icons im System. */
+.glas-umriss {
+  fill: none;
+  stroke: var(--on-surface-variant);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sorte-rumpf { min-width: 0; }
+
+.sorte-name { margin: 0; color: var(--primary); }
+.sorte-herkunft { margin: var(--space-1) 0 var(--space-2); color: var(--secondary); }
+
+/* Begriff links, Wert rechts. Drei Spalten nebeneinander sind in einer Karte
+   dieser Breite zu eng — "STAMMWÜRZE" allein braucht als label-caps fast
+   100 px und lief in die Nachbarspalte. display:contents hebt die Wrapper-divs
+   auf, damit dt und dd direkt im Raster sitzen. */
+.sorte-zahlen {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) 0;
+  border-top: var(--border-hairline);
+  border-bottom: var(--border-hairline);
+}
+
+.sorte-zahlen > div { display: contents; }
+.sorte-zahlen dt { margin: 0; color: var(--outline); align-self: center; }
+.sorte-zahlen dd { margin: 0; color: var(--on-surface); }
+
+.sorte-rumpf .body-md { margin: 0 0 var(--space-2); color: var(--on-surface-variant); }
+
+.sorte-unterschied {
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--tertiary-fixed-dim);
+}
+
+.sorte-beispiel { margin: 0; color: var(--outline); }
+
+@media (max-width: 40rem) {
+  .sorte { grid-template-columns: 1fr; }
+  .sorte-glas { justify-self: start; }
+  .sorten { grid-template-columns: 1fr; }
+}

@@ -32,6 +32,18 @@ oder Hinweise auf Landesherren. Sag, worauf sie zurückgehen.
 7. Destilliere daraus drei bis fünf Sätze Gesprächsstoff — Dinge, die am Tisch \
 tatsächlich überraschen, konkret und in einem Atemzug sagbar.
 
+Danach die erweiterte Sicht auf das Bier, jeweils konkret auf diesen Stil und \
+dieses Bier bezogen, nicht allgemein über Bier:
+8. Brauart: Verfahren, Zutaten mit ihrer jeweiligen Rolle, Gärführung, und was \
+das Verfahren gerade hier ausmacht.
+9. Speisen: erst der Grundsatz — ergänzt das Bier das Gericht, schneidet es durch \
+oder spiegelt es? —, dann konkrete Gerichte mit Begründung, und was nicht dazu passt.
+10. Verkostung: die beste Trinktemperatur als Spanne, mit Begründung, was bei zu \
+kalt und bei zu warm passiert. Dazu Glas, Einschenken und die Schritte der \
+Verkostung in der richtigen Reihenfolge.
+11. Verwandte Biere: drei bis fünf, die ähnlich gebraut sind und ähnlich schmecken. \
+Zu jedem, worin die Ähnlichkeit liegt und worin der Unterschied.
+
 Wichtige Regeln:
 - Erfinde niemals Fakten. Was du nicht weißt, ist "unbekannt".
 - Unterscheide klar zwischen dem, was auf dem Etikett zu sehen ist, und dem, was du \
@@ -66,9 +78,13 @@ export async function etikettLesen(schluessel: string, bild: AufbereitetesBild):
   });
 
   try {
-    const antwort = await client.messages.parse({
+    // Streaming, nicht messages.parse(): bei diesem max_tokens lehnt das SDK
+    // einen nicht-gestreamten Aufruf ab, weil die errechnete Zeitgrenze über
+    // den erlaubten zehn Minuten läge. finalMessage() läuft durch denselben
+    // Parser und liefert parsed_output genauso.
+    const strom = client.messages.stream({
       model: MODELL,
-      max_tokens: 16000,
+      max_tokens: 32000,
       thinking: { type: 'adaptive' },
       system: SYSTEM_PROMPT,
       messages: [
@@ -85,6 +101,16 @@ export async function etikettLesen(schluessel: string, bild: AufbereitetesBild):
       ],
       output_config: { format: zodOutputFormat(EtikettSchema) },
     });
+
+    const antwort = await strom.finalMessage();
+
+    if (antwort.stop_reason === 'max_tokens') {
+      throw new EtikettFehler(
+        'Die Antwort wurde abgeschnitten, bevor sie vollständig war.',
+        'Das Etikett war ungewöhnlich reich an Details. Versuch es mit einem ' +
+          'engeren Ausschnitt des Etiketts noch einmal.',
+      );
+    }
 
     if (antwort.stop_reason === 'refusal') {
       throw new EtikettFehler(

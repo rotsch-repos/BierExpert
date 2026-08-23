@@ -49,6 +49,73 @@ export const ElementSchema = z.object({
 
 export type Etikettelement = z.infer<typeof ElementSchema>;
 
+
+/* ==========================================================================
+   Die erweiterte Sicht — je ein Reiter
+   ========================================================================== */
+
+export const ZutatSchema = z.object({
+  was: z.string().describe('Die Zutat, z. B. "Münchner Malz", "Hallertauer Mittelfrüh", "untergärige Hefe"'),
+  rolle: z.string().describe('Was sie in genau diesem Bier bewirkt — ein bis zwei Sätze'),
+});
+
+export const BrauartSchema = z.object({
+  verfahren: z
+    .string()
+    .describe(
+      'Wie dieses Bier gebraut wird, in zwei bis drei Absätzen (getrennt durch \n\n): ' +
+        'Maischverfahren, Gärung, Reifung, Besonderheiten des Betriebs. Konkret auf ' +
+        'diesen Bierstil bezogen, nicht allgemein über Bier.',
+    ),
+  zutaten: z.array(ZutatSchema).describe('Drei bis fünf Zutaten mit ihrer Rolle: Malz, Hopfen, Hefe, Wasser'),
+  gaerung: z.string().describe('Ober- oder untergärig, Gärtemperatur und Reifedauer, soweit typisch für den Stil'),
+  besonderheit: z.string().describe('Was das Brauverfahren bei genau diesem Bier ausmacht — ein bis zwei Sätze'),
+});
+
+export const SpeisePaarSchema = z.object({
+  gericht: z.string().describe('Ein konkretes Gericht, nicht eine Kategorie'),
+  warum: z.string().describe('Warum es passt: welcher Geschmackszug trifft auf welchen — zwei bis drei Sätze'),
+});
+
+export const SpeisenSchema = z.object({
+  grundsatz: z
+    .string()
+    .describe('Das Prinzip hinter den Empfehlungen: ergänzt das Bier, schneidet es durch, oder spiegelt es? Ein Absatz.'),
+  paare: z.array(SpeisePaarSchema).describe('Drei bis fünf Gerichte mit Begründung'),
+  meiden: z.string().describe('Was nicht dazu passt und warum — ein bis zwei Sätze'),
+});
+
+export const VerkostungsschrittSchema = z.object({
+  schritt: z.string().describe('Kurzer Name, z. B. "Auge", "Nase", "Antrunk", "Abgang"'),
+  was: z.string().describe('Worauf zu achten ist und was man erwarten sollte — zwei bis drei Sätze'),
+});
+
+export const VerkostungSchema = z.object({
+  temperatur: z.string().describe('Die beste Trinktemperatur als Spanne, z. B. "7 bis 9 °C"'),
+  temperatur_warum: z
+    .string()
+    .describe(
+      'Warum genau diese Spanne: was passiert bei zu kalt, was bei zu warm. Zwei bis drei Sätze.',
+    ),
+  glas: z.string().describe('Das passende Glas, z. B. "Pilstulpe", "Weizenglas", "Tulpe"'),
+  glas_warum: z.string().describe('Was die Glasform bewirkt — ein bis zwei Sätze'),
+  einschenken: z.string().describe('Wie eingeschenkt wird, inklusive Schaumkrone — ein bis zwei Sätze'),
+  schritte: z.array(VerkostungsschrittSchema).describe('Drei bis fünf Schritte der Verkostung, in der richtigen Reihenfolge'),
+});
+
+export const VerwandtesBierSchema = z.object({
+  name: z.string().describe('Name des Bieres'),
+  brauerei: z.string().describe('Brauerei'),
+  land: z.string().describe('Land'),
+  warum: z.string().describe('Worin es ähnlich ist — Brauart, Malz, Hopfen, Geschmacksbild. Zwei bis drei Sätze.'),
+  unterschied: z.string().describe('Worin es sich unterscheidet — ein bis zwei Sätze'),
+});
+
+export type Brauart = z.infer<typeof BrauartSchema>;
+export type Speisen = z.infer<typeof SpeisenSchema>;
+export type Verkostung = z.infer<typeof VerkostungSchema>;
+export type VerwandtesBier = z.infer<typeof VerwandtesBierSchema>;
+
 export const EtikettSchema = z.object({
   erkannt: z.boolean().describe('true, wenn ein Bieretikett, eine Flasche oder eine Dose zu sehen ist'),
 
@@ -99,6 +166,14 @@ export const EtikettSchema = z.object({
       'Drei bis fünf Sätze, die man in einer Bierrunde erzählen kann: überraschend, ' +
         'konkret, in einem Atemzug sagbar. Kein Marketing, keine Allgemeinplätze.',
     ),
+
+  /* --- Die erweiterte Sicht, je ein Reiter --------------------------- */
+  brauart: BrauartSchema.describe('Wie dieses Bier gebraut wird'),
+  speisen: SpeisenSchema.describe('Welches Essen dazu passt und warum'),
+  verkostung: VerkostungSchema.describe('Wie es am besten verkostet wird, mit Trinktemperatur'),
+  verwandte: z
+    .array(VerwandtesBierSchema)
+    .describe('Drei bis fünf ähnlich gebraute und ähnlich schmeckende Biere'),
 
   hinweis: z
     .string()
