@@ -86,11 +86,22 @@ printf '%s\n' "$INHALT" | $SSH "$ZIEL" "
   chmod 600 '${PFAD}'
 "
 
-echo "==> Prüfen, ob PHP die Datei annimmt"
 # Eine Konfiguration mit Syntaxfehler fiele sonst erst beim ersten Scan auf,
 # und zwar als "Server ist noch nicht eingerichtet" — eine Meldung, die in
 # die Irre führt.
-$SSH "$ZIEL" "php -l '${PFAD}' >/dev/null" \
-  || { echo "FEHLER: Die geschriebene Konfiguration ist kein gültiges PHP." >&2; exit 1; }
+#
+# Fehlt der php-Aufruf in der Shell des Servers, wird die Prüfung
+# übersprungen statt den Lauf abzubrechen: Die Datei steht an dieser Stelle
+# schon, und ein Abbruch danach hinterliesse eine geschriebene Konfiguration
+# und ein rotes Deploy — ohne dass etwas kaputt wäre. Welches PHP der
+# Webserver fährt, sagt ohnehin erst /api/gesundheit.php.
+if $SSH "$ZIEL" "command -v php >/dev/null 2>&1"; then
+  echo "==> Prüfen, ob PHP die Datei annimmt"
+  $SSH "$ZIEL" "php -l '${PFAD}' >/dev/null" \
+    || { echo "FEHLER: Die geschriebene Konfiguration ist kein gültiges PHP." >&2; exit 1; }
+else
+  echo "==> Übersprungen: In der Shell des Servers gibt es keinen php-Aufruf."
+  echo "    Ob die Konfiguration greift, sagt /api/gesundheit.php."
+fi
 
 echo "==> Fertig"
