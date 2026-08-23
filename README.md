@@ -270,12 +270,16 @@ zusammengehören, weil beide serverseitigen Code brauchen:
    eigenen Endpunkt umgestellt werden. Zu klären ist dabei, was der lokale
    Dienst bei zwei Punkten anbietet, an denen die heutige Lösung hängt:
    Bildverstehen und erzwungene JSON-Struktur nach einem Schema.
-3. **Die MySQL-Datenbank ist angelegt, aber nicht angebunden.** Wozu sie dienen
-   soll — Auswertungen aufheben, ein eigenes Glossar pflegen, Nutzerkonten —
-   entscheidet, wie das Schema aussieht.
+3. **Die MariaDB ist angelegt, aber leer.** `atozadec_bierexpert` auf
+   MariaDB 10.11. Der Migrationsweg steht (`deploy/migrationen.sh`), aber wozu
+   die Datenbank dienen soll — Auswertungen aufheben und wiederfinden,
+   Ergebnisse zwischenspeichern statt neu berechnen, ein eigenes Glossar
+   pflegen, Nutzerkonten — entscheidet, wie das Schema aussieht.
 
-Auf dem Hostwebspace steht dafür PHP zur Verfügung; ein dauerhaft laufender
-Node-Prozess ist auf geteiltem Hosting üblicherweise nicht vorgesehen.
+Der Datenbank-Host ist nur innerhalb des Hostpoint-Netzes auflösbar. Damit ist
+festgelegt, wo der serverseitige Code laufen muss: auf Hostpoint, und dort
+heißt das PHP. Ein Dienst auf einem eigenen Server käme ohne Tunnel nicht an
+die Daten. Einzelheiten in [`deploy/README.md`](./deploy/README.md).
 
 ## Grenzen
 

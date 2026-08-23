@@ -143,8 +143,74 @@ DEPLOY_BASIS=/home/atozadec/deploy/bierexpert \
 - Ein Wurzelverzeichnis, in dem **nichts von Hand liegt**. Das Übernehmen
   räumt mit `--delete` auf: Was nicht zum Build gehört, verschwindet.
 
+## Datenbank
+
+Angelegt auf Hostpoint:
+
+| | |
+| --- | --- |
+| Host | `atozadec.mysql.db.internal` |
+| Datenbank | `atozadec_bierexpert` |
+| Benutzer | `atozadec_expert` |
+| Version | MariaDB 10.11 |
+
+### Der Host ist intern — das bestimmt die Architektur
+
+`…​.db.internal` ist nur innerhalb des Hostpoint-Netzes auflösbar. Daraus folgt
+zweierlei, und beides ist keine Vorliebe, sondern eine Gegebenheit:
+
+- **Migrationen laufen nicht im Runner.** Ein GitHub-Runner erreicht diesen
+  Host nicht. `deploy/migrationen.sh` verbindet sich deshalb per SSH auf den
+  Hostpoint-Server und ruft den dortigen `mysql`-Client auf.
+- **Serverseitiger Code muss auf Hostpoint laufen.** Auch ein Dienst auf einem
+  eigenen Server käme nicht an diese Datenbank, ohne einen Tunnel zu legen.
+  Auf Hostpoint-Webhosting heißt das: PHP.
+
+Nachprüfen lässt sich das mit:
+
+```bash
+ssh atozadec@atozadec.myhostpoint.ch \
+  "getent hosts atozadec.mysql.db.internal && command -v mysql"
+```
+
+Vom eigenen Rechner aus schlägt dieselbe Auflösung fehl — das ist der Beleg.
+
+### Migrationen
+
+SQL-Dateien liegen in `db/migrationen/` und werden nach Dateinamen sortiert
+eingespielt. Die Benennung `JJJJMMTTThhmm-was-es-tut.sql` sorgt dafür, dass
+die Reihenfolge stimmt.
+
+Angewandte Migrationen stehen in der Tabelle `schema_migrationen`; ein zweiter
+Lauf überspringt, was schon drin ist. Der Aufruf ist dadurch gefahrlos
+wiederholbar.
+
+```bash
+# Erst ansehen, was passieren würde
+DEPLOY_HOST=atozadec.myhostpoint.ch DEPLOY_USER=atozadec \
+DB_HOST=atozadec.mysql.db.internal DB_NAME=atozadec_bierexpert \
+DB_USER=atozadec_expert DB_PASSWORT='…' \
+PROBELAUF=ja ./deploy/migrationen.sh
+
+# Dann einspielen: dieselbe Zeile ohne PROBELAUF
+```
+
+Das Passwort geht **nicht** als Kommandoargument mit. Argumente stehen in der
+Prozessliste und wären für jeden auf dem Server sichtbar; stattdessen wird auf
+dem Server eine Konfigurationsdatei mit `umask 077` geschrieben, die auch bei
+einem Abbruch wieder entfernt wird.
+
+Als GitHub-Secret gehört das Passwort unter `DB_PASSWORT`, die übrigen Werte
+als Variablen `DB_HOST`, `DB_NAME`, `DB_USER`.
+
 ## Was noch nicht abgedeckt ist
 
-Das Deploy liefert die statische Seite aus. Die geplante MySQL-Anbindung und
-der Aufruf des lokalen Sprachmodells brauchen serverseitigen Code, den es noch
-nicht gibt — dazu die offenen Punkte in der Haupt-README.
+Das Deploy liefert die statische Seite aus, und die Migrationen können laufen.
+Was fehlt, ist der serverseitige Code selbst: der PHP-Teil, der die Datenbank
+anspricht und das lokale Sprachmodell aufruft. Beides hängt an zwei Fragen, die
+in der Haupt-README unter „Offene Punkte" stehen — welcher Dienst das Modell
+bereitstellt, und wofür die Datenbank da sein soll.
+
+Die Migrationen sind bewusst noch nicht ans Deploy gehängt. Erst wenn es
+Tabellen gibt, die zu einem laufenden Backend gehören, ergibt ein automatischer
+Lauf Sinn; vorher wäre es ein Schritt, der bei jedem Deploy nichts tut.
