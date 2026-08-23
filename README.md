@@ -13,7 +13,9 @@ Keine Erzählung über das Bier, sondern eine **Zerlegung des Etiketts**:
 1. **Eckdaten** — Brauerei, Ort, Gründungsjahr, Stil, Stammwürze, Alkohol
 2. **Die Elemente**, einzeln aufgeschlüsselt — zu jedem Wappen, Tier, Symbol,
    Band oder Siegel: wo es sitzt, was zu sehen ist, wofür es steht und worauf
-   es zurückgeht
+   es zurückgeht. Links der Text, rechts das eigene Foto mit der Fundstelle
+   markiert: das Modell liefert zu jedem Element einen Bildbereich, alles
+   außerhalb wird abgedunkelt.
 3. **Farbwahl und Schriftbild** — was die Gestaltung signalisiert
 4. **Geschichtlicher Hintergrund** von Brauerei und Etikett
 5. **Für die Runde** — drei bis fünf Sätze, die am Tisch tatsächlich überraschen
@@ -29,6 +31,20 @@ gewusste Elemente werden offen als solche benannt.
    Bild an die Anthropic Messages API (`claude-opus-5`, Vision).
 3. Die Antwort kommt als strukturiertes JSON zurück — per `output_config.format`
    gegen ein Zod-Schema erzwungen — und wird gerendert.
+
+### Die Fundstellen auf dem Foto
+
+Jedes Element trägt einen `bereich` in normalisierten Koordinaten (0 bis 1,
+bezogen auf das ganze Bild). Weil das an die API geschickte Bild dasselbe
+herunterskalierte Bild ist wie die Vorschau im DOM, lassen sich die Werte
+direkt als Prozent auf das angezeigte Foto legen.
+
+Die Koordinaten sind eine Schätzung des Modells und werden deshalb geprüft,
+bevor sie gezeichnet werden (`kastenPruefen` in `src/main.ts`): Werte außerhalb
+des Bildes werden hineingeklemmt, und ein Bereich, der danach zu klein ist,
+praktisch das ganze Bild umfasst oder keine gültigen Zahlen enthält, führt zu
+**keiner** Markierung — eine Markierung an der falschen Stelle wäre schlechter
+als gar keine. Das Foto wird in dem Fall abgeblendet dargestellt.
 
 ## Sprachwahl
 

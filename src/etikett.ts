@@ -18,12 +18,18 @@ Jahreszahlen, Wahlsprüche, Auszeichnungen.
 2. Geh das Etikett systematisch ab und nimm jedes Bildelement einzeln auseinander: \
 Wappen und ihre Felder, Tiere, Figuren, Kronen, Sterne, Bänder, Medaillen, Siegel, \
 Ornamente, Ortsansichten. Zu jedem: wo es sitzt, was zu sehen ist, wofür es steht.
-3. Ordne Heraldik korrekt ein. Ein Löwe, ein Schlüsselpaar, eine Raute, ein Krummstab — \
+3. Gib zu jedem Element den Bildbereich an, in dem es zu sehen ist — als \
+normalisierte Koordinaten von 0 bis 1, bezogen auf das gesamte übergebene Bild: \
+x und y sind die linke obere Ecke, breite und hoehe die Ausdehnung. (0,0) ist \
+links oben, (1,1) rechts unten. Leg den Rahmen so eng wie möglich um das Element, \
+aber lass nichts davon außerhalb. Dieser Bereich wird dem Leser auf dem Foto \
+markiert — sitzt er falsch, zeigt die Markierung auf die falsche Stelle.
+4. Ordne Heraldik korrekt ein. Ein Löwe, ein Schlüsselpaar, eine Raute, ein Krummstab — \
 das sind selten Dekoration, sondern meist Stadtwappen, Ordenszeichen, Zunftsymbole \
 oder Hinweise auf Landesherren. Sag, worauf sie zurückgehen.
-4. Deute Farbwahl und Schriftbild: was signalisieren sie, und warum wurden sie gewählt?
-5. Gib den geschichtlichen Hintergrund von Brauerei und Etikett.
-6. Destilliere daraus drei bis fünf Sätze Gesprächsstoff — Dinge, die am Tisch \
+5. Deute Farbwahl und Schriftbild: was signalisieren sie, und warum wurden sie gewählt?
+6. Gib den geschichtlichen Hintergrund von Brauerei und Etikett.
+7. Destilliere daraus drei bis fünf Sätze Gesprächsstoff — Dinge, die am Tisch \
 tatsächlich überraschen, konkret und in einem Atemzug sagbar.
 
 Wichtige Regeln:

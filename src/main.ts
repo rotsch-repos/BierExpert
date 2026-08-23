@@ -1,7 +1,7 @@
 import './style.css';
 import { bildAufbereiten, BildFehler, type AufbereitetesBild } from './bild';
 import { etikettLesen, EtikettFehler } from './etikett';
-import type { Etikett, Etikettelement } from './schema';
+import type { Bereich, Etikett, Etikettelement } from './schema';
 
 const SPEICHER_SCHLUESSEL = 'bierexpert.apiSchluessel';
 
@@ -287,9 +287,9 @@ function befundZeichnen(e: Etikett): void {
     ]),
   );
 
-  /* --- Kern: die Elemente einzeln --- */
-  if (e.elemente.length) {
-    blatt.append(elementeBauen(e.elemente));
+  /* --- Kern: die Elemente einzeln, jeweils auf dem Foto markiert --- */
+  if (e.elemente.length && aktuellesBild) {
+    blatt.append(elementeBauen(e.elemente, aktuellesBild.vorschauUrl));
   }
 
   blatt.append(textBlock('Farbwahl', e.farbwahl));
@@ -327,7 +327,10 @@ function befundZeichnen(e: Etikett): void {
   ziel.append(blatt);
 }
 
-function elementeBauen(elemente: readonly Etikettelement[]): HTMLElement {
+function elementeBauen(
+  elemente: readonly Etikettelement[],
+  bildUrl: string,
+): HTMLElement {
   const abschnitt = document.createElement('section');
   abschnitt.className = 'chronik-abschnitt';
 
@@ -343,15 +346,22 @@ function elementeBauen(elemente: readonly Etikettelement[]): HTMLElement {
     const li = document.createElement('li');
     li.className = 'element';
 
+    /* --- links: der Text --- */
+    const text = document.createElement('div');
+    text.className = 'element-text';
+
+    const kopf = document.createElement('div');
+    kopf.className = 'element-kopf';
+
     const nr = document.createElement('span');
     nr.className = 'element-nr mono-data';
     nr.textContent = String(i + 1).padStart(2, '0');
 
-    const rumpf = document.createElement('div');
-
     const name = document.createElement('h5');
     name.className = 'element-name headline-sm';
     name.textContent = element.bezeichnung;
+
+    kopf.append(nr, name);
 
     const wo = document.createElement('p');
     wo.className = 'element-wo label-caps';
@@ -365,13 +375,76 @@ function elementeBauen(elemente: readonly Etikettelement[]): HTMLElement {
     warum.className = 'element-bedeutung body-md';
     warum.textContent = element.bedeutung;
 
-    rumpf.append(name, wo, was, warum);
-    li.append(nr, rumpf);
+    text.append(kopf, wo, was, warum);
+
+    /* --- rechts: das Foto mit Markierung --- */
+    li.append(text, bildMitMarkierung(bildUrl, element.bereich, element.bezeichnung));
     liste.append(li);
   });
 
   abschnitt.append(liste);
   return abschnitt;
+}
+
+/**
+ * Zeigt das hochgeladene Foto und legt einen Rahmen auf den Bereich des
+ * Elements. Alles außerhalb wird abgedunkelt — der Blick geht damit sofort
+ * an die richtige Stelle.
+ */
+function bildMitMarkierung(bildUrl: string, bereich: Bereich, name: string): HTMLElement {
+  const figur = document.createElement('figure');
+  figur.className = 'element-bild';
+
+  const bild = document.createElement('img');
+  bild.src = bildUrl;
+  bild.alt = `Fundstelle von „${name}" auf dem Etikett`;
+  bild.loading = 'lazy';
+  figur.append(bild);
+
+  const k = kastenPruefen(bereich);
+  if (k) {
+    const marke = document.createElement('span');
+    marke.className = 'element-marke';
+    marke.style.left = `${k.x * 100}%`;
+    marke.style.top = `${k.y * 100}%`;
+    marke.style.width = `${k.breite * 100}%`;
+    marke.style.height = `${k.hoehe * 100}%`;
+    figur.append(marke);
+  } else {
+    // Ohne brauchbaren Bereich lieber gar keine Markierung als eine falsche.
+    figur.classList.add('ohne-marke');
+  }
+
+  return figur;
+}
+
+/**
+ * Klemmt den Bereich ins Bild und verwirft Unbrauchbares. Das Modell schätzt
+ * die Koordinaten — ein Rahmen mit Breite 0 oder außerhalb des Bildes würde
+ * sonst als Markierung an falscher Stelle erscheinen.
+ */
+function kastenPruefen(b: Bereich): Bereich | null {
+  const zahl = (n: number) => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : null);
+
+  const x = zahl(b.x);
+  const y = zahl(b.y);
+  if (x === null || y === null) return null;
+
+  const breite = zahl(b.breite);
+  const hoehe = zahl(b.hoehe);
+  if (breite === null || hoehe === null) return null;
+
+  // Praktisch das ganze Bild markieren sagt nichts aus.
+  if (breite > 0.98 && hoehe > 0.98) return null;
+
+  // Erst ins Bild klemmen, dann auf Mindestgröße prüfen: ein Kasten, der
+  // rechts oder unten aus dem Bild ragt, schrumpft beim Klemmen und würde
+  // sonst als entarteter Strich am Rand erscheinen.
+  const breiteImBild = Math.min(breite, 1 - x);
+  const hoeheImBild = Math.min(hoehe, 1 - y);
+  if (breiteImBild < 0.01 || hoeheImBild < 0.01) return null;
+
+  return { x, y, breite: breiteImBild, hoehe: hoeheImBild };
 }
 
 function tafelBauen(zeilen: ReadonlyArray<readonly [string, string]>): HTMLDListElement {

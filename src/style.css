@@ -467,7 +467,7 @@ a { color: var(--secondary); text-underline-offset: 3px; }
 a:hover { color: var(--on-secondary-container); }
 
 /* ==========================================================================
-   Die Elemente — der Kern der Auswertung
+   Die Elemente — Text links, markiertes Foto rechts
    ========================================================================== */
 
 .elemente {
@@ -480,8 +480,9 @@ a:hover { color: var(--on-secondary-container); }
 
 .element {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-2);
+  grid-template-columns: 1fr 240px;
+  gap: var(--space-3);
+  align-items: start;
   padding: var(--space-3);
   background: var(--surface-container-low);
   border: var(--border-hairline);
@@ -494,10 +495,13 @@ a:hover { color: var(--on-secondary-container); }
   box-shadow: var(--elevation-hover);
 }
 
-.element-nr {
-  color: var(--outline);
-  padding-top: 6px;
+.element-kopf {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
 }
+
+.element-nr { flex: 0 0 auto; color: var(--outline); }
 
 .element-name { margin: 0; color: var(--primary); }
 
@@ -506,15 +510,69 @@ a:hover { color: var(--on-secondary-container); }
   color: var(--secondary);
 }
 
-.element p { max-width: 68ch; }
+.element-text p { max-width: 62ch; }
 
-.element .body-md { margin: var(--space-1) 0 0; color: var(--on-surface-variant); }
+.element-text .body-md { margin: var(--space-1) 0 0; color: var(--on-surface-variant); }
 
 /* Gleiche Spezifitaet wie die Regel darueber, steht aber spaeter und gewinnt
    deshalb — ohne Ueberschreib-Flag. */
-.element .element-bedeutung { color: var(--on-surface); }
+.element-text .element-bedeutung { color: var(--on-surface); }
+
+/* --- Die Fundstelle auf dem Foto --- */
+
+/* Die Figur schmiegt sich exakt an das Bild (fit-content). Das ist die
+   Voraussetzung dafür, dass die Prozentwerte der Markierung stimmen: sie
+   beziehen sich auf die Figur, die damit deckungsgleich mit dem Bild ist.
+   Die Höhenbegrenzung hält die Karte bei Hochformat-Fotos kompakt. */
+.element-bild {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 0 auto;
+  overflow: hidden;
+  line-height: 0;
+  background: var(--surface-container-highest);
+  border: var(--border-hairline);
+  border-radius: var(--rounded);
+}
+
+.element-bild img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 300px;
+}
+
+/* Der Rahmen markiert die Fundstelle; der ausufernde Schatten verdunkelt
+   alles außerhalb davon, weil er am Kasten hängt und das Elternelement
+   ihn beschneidet. */
+.element-marke {
+  position: absolute;
+  border: 2px solid var(--secondary);
+  border-radius: var(--rounded-sm);
+  /* Heller Ring nach außen, damit der Rahmen auch auf dunklen Bildstellen
+     stehen bleibt; der ausufernde Schatten verdunkelt alles außerhalb. */
+  outline: 1px solid var(--secondary-container);
+  box-shadow: 0 0 0 100vmax var(--overlay-dim);
+}
+
+/* Konnte das Modell die Stelle nicht angeben, bleibt das Foto ungetrübt,
+   aber sichtbar zurückgenommen — keine Markierung ist besser als eine falsche. */
+.ohne-marke img { opacity: 0.55; }
+
+@media (max-width: 52rem) {
+  .element {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .element-bild {
+    order: -1;
+    max-width: 220px;
+  }
+}
 
 @media (max-width: 40rem) {
-  .element { grid-template-columns: 1fr; gap: var(--space-1); padding: var(--space-2); }
-  .element-nr { padding-top: 0; }
+  .element { padding: var(--space-2); }
 }

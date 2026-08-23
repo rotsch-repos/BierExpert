@@ -9,6 +9,22 @@ import { z } from 'zod';
  * trägt es "unbekannt" ein. Das macht das Rendern eindeutig.
  */
 
+/**
+ * Bildbereich eines Elements in normalisierten Koordinaten: 0 ist der linke
+ * bzw. obere Bildrand, 1 der rechte bzw. untere. Damit bleibt die Angabe
+ * unabhängig von der Auflösung — das an die API geschickte Bild und die
+ * Vorschau im DOM sind dasselbe (herunterskalierte) Bild, die Werte lassen
+ * sich also direkt als Prozent auf die Vorschau legen.
+ */
+export const BereichSchema = z.object({
+  x: z.number().describe('Linke Kante des Bereichs, 0 bis 1'),
+  y: z.number().describe('Obere Kante des Bereichs, 0 bis 1'),
+  breite: z.number().describe('Breite als Anteil der Bildbreite, 0 bis 1'),
+  hoehe: z.number().describe('Höhe als Anteil der Bildhöhe, 0 bis 1'),
+});
+
+export type Bereich = z.infer<typeof BereichSchema>;
+
 /** Ein einzelnes Bildelement des Etiketts — der Kern der Auswertung. */
 export const ElementSchema = z.object({
   bezeichnung: z
@@ -24,6 +40,11 @@ export const ElementSchema = z.object({
       'Wofür das Element steht und warum es auf diesem Etikett ist: Heraldik, Stadtwappen, ' +
         'Ordenszeichen, Zunftsymbol, Auszeichnung, Markenzeichen. Zwei bis vier Sätze.',
     ),
+  bereich: BereichSchema.describe(
+    'Der Bildbereich, in dem dieses Element zu sehen ist — so eng wie möglich um das ' +
+      'Element gelegt, aber vollständig. Bezogen auf das gesamte übergebene Bild, ' +
+      'nicht nur auf das Etikett.',
+  ),
 });
 
 export type Etikettelement = z.infer<typeof ElementSchema>;

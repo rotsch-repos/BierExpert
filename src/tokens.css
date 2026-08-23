@@ -100,6 +100,11 @@
 
   --elevation-hover: 0 4px 20px rgba(78, 44, 28, 0.08);
   --border-hairline: 1px solid var(--outline-variant);
+
+  /* Abgeleitet: inverse-surface (#31312d) auf 62 % Deckkraft. Dient dazu,
+     alles außerhalb einer Fundstelle abzudunkeln. Steht hier und nicht im
+     Komponenten-CSS, damit dort kein Literal auftaucht. */
+  --overlay-dim: rgba(49, 49, 45, 0.62);
 }
 
 /* ==========================================================================
