@@ -1,0 +1,518 @@
+/* ==========================================================================
+   Bier Expert — Klosterstil
+   Pergament, Eisengallustinte, Rubrizierung in Zinnober, Blattgold.
+   ========================================================================== */
+
+:root {
+  --pergament:       #f2e5c8;
+  --pergament-tief:  #e4d2ab;
+  --pergament-fleck: #d8c199;
+  --tinte:           #2f2115;
+  --tinte-zart:      #5c4633;
+  --rubrik:          #9c2b13;   /* Zinnoberrot der Rubrizierung */
+  --gold:            #a9821f;
+  --gold-hell:       #d9b64a;
+  --eiche:           #33200f;
+  --eiche-tief:      #1a0f06;
+
+  --serif:   "EB Garamond", "Iowan Old Style", Palatino, Georgia, serif;
+  --kapital: "Cinzel", "Trajan Pro", Georgia, serif;
+  --fraktur: "UnifrakturMaguntia", "Cinzel", Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: clamp(1rem, 4vw, 3.5rem) clamp(0.75rem, 3vw, 2rem);
+  font-family: var(--serif);
+  font-size: clamp(1rem, 0.97rem + 0.2vw, 1.13rem);
+  line-height: 1.7;
+  color: var(--tinte);
+
+  /* Dunkles Eichenholz der Klosterschänke */
+  background-color: var(--eiche-tief);
+  background-image:
+    repeating-linear-gradient(90deg,
+      rgba(0,0,0,0.20) 0px, rgba(0,0,0,0.20) 2px,
+      rgba(255,255,255,0.022) 2px, rgba(255,255,255,0.022) 5px,
+      rgba(0,0,0,0.10) 5px, rgba(0,0,0,0.10) 9px),
+    radial-gradient(ellipse at 50% 0%, #4a2d15 0%, #2a1809 45%, #140b04 100%);
+}
+
+/* Kerzenschein über dem Holz */
+.kerzenschein {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 50% at 50% 12%,
+              rgba(255, 196, 92, 0.16) 0%, rgba(255, 170, 60, 0.05) 40%, transparent 72%);
+  z-index: 0;
+}
+
+/* ---------- Das Pergamentblatt ---------- */
+
+.pergament {
+  position: relative;
+  z-index: 1;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 5vw, 4rem) clamp(1.25rem, 5vw, 4.5rem);
+
+  background-color: var(--pergament);
+  background-image:
+    radial-gradient(circle at 12% 18%, var(--pergament-fleck) 0%, transparent 26%),
+    radial-gradient(circle at 88% 72%, var(--pergament-fleck) 0%, transparent 22%),
+    radial-gradient(circle at 62% 8%,  rgba(190,160,110,0.35) 0%, transparent 18%),
+    linear-gradient(160deg, var(--pergament) 0%, var(--pergament-tief) 100%);
+
+  border: 1px solid #8d6f43;
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 8px rgba(45, 28, 12, 0.55),
+    0 0 0 9px var(--gold),
+    0 24px 60px rgba(0, 0, 0, 0.66);
+}
+
+/* ---------- Kopf: Scriptorium ---------- */
+
+.scriptorium { text-align: center; position: relative; }
+
+.bogen {
+  display: block;
+  width: min(11rem, 42%);
+  margin: 0 auto -2.6rem;
+  color: var(--gold);
+  opacity: 0.85;
+}
+
+.kreuz {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--rubrik);
+  line-height: 1;
+}
+
+h1 {
+  font-family: var(--fraktur);
+  font-weight: 400;
+  font-size: clamp(2.8rem, 11vw, 5.5rem);
+  line-height: 1.05;
+  margin: 0.2rem 0 0;
+  color: var(--tinte);
+  text-shadow: 0 1px 0 rgba(255, 244, 214, 0.7);
+}
+
+.devise {
+  font-family: var(--kapital);
+  font-size: clamp(0.72rem, 2.4vw, 0.95rem);
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  text-transform: uppercase;
+  color: var(--rubrik);
+  margin: 0.35rem 0 0;
+}
+
+.untertitel {
+  font-style: italic;
+  color: var(--tinte-zart);
+  margin: 1.1rem auto 0;
+  max-width: 34rem;
+}
+
+.fleuron {
+  color: var(--gold);
+  font-size: 1.45rem;
+  text-align: center;
+  margin: 1.6rem 0;
+  line-height: 1;
+}
+
+/* ---------- Kapitel ---------- */
+
+.kapitel {
+  margin: 2.6rem 0;
+  padding-top: 1.6rem;
+  border-top: 1px solid rgba(141, 111, 67, 0.42);
+}
+
+.kapitel:first-of-type { border-top: none; padding-top: 0; }
+
+h2 {
+  font-family: var(--kapital);
+  font-weight: 600;
+  font-size: clamp(1.05rem, 3.2vw, 1.4rem);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinte);
+  margin: 0 0 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.ziffer {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  font-family: var(--kapital);
+  font-size: 0.95rem;
+  color: var(--pergament);
+  background: var(--rubrik);
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(255, 233, 190, 0.28);
+}
+
+/* ---------- Ablage: der gotische Bogen ---------- */
+
+.ablage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 17rem;
+  padding: 1.5rem;
+  cursor: pointer;
+  color: var(--gold);
+  background: rgba(255, 250, 235, 0.42);
+  border-radius: 4px;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.ablage:hover,
+.ablage:focus-visible { background: rgba(255, 250, 235, 0.78); outline: none; }
+
+.ablage:focus-visible { box-shadow: 0 0 0 3px rgba(169, 130, 31, 0.55); }
+
+.ablage.bereit { background: rgba(255, 246, 220, 0.92); transform: scale(1.008); }
+
+.ablage-bogen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.ablage-inhalt { position: relative; text-align: center; color: var(--tinte-zart); }
+
+.ablage-symbol { font-size: 3.1rem; margin: 0 0 0.4rem; line-height: 1; }
+
+.ablage-ruf {
+  font-family: var(--kapital);
+  font-size: 1rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tinte);
+  margin: 0 0 0.5rem;
+}
+
+.ablage-klein { font-size: 0.88rem; margin: 0; }
+
+.vorschau {
+  position: relative;
+  max-width: min(100%, 20rem);
+  max-height: 22rem;
+  border-radius: 3px;
+  border: 1px solid #8d6f43;
+  box-shadow: 0 6px 20px rgba(45, 28, 12, 0.42);
+}
+
+.dateiname {
+  text-align: center;
+  font-size: 0.9rem;
+  font-style: italic;
+  color: var(--tinte-zart);
+  margin: 0.85rem 0 0;
+}
+
+/* ---------- Tasten ---------- */
+
+.tastenreihe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.taste {
+  font-family: var(--kapital);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  padding: 0.8rem 1.7rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform 130ms ease, box-shadow 130ms ease, filter 130ms ease;
+}
+
+.taste-gold {
+  color: #2c1c08;
+  background: linear-gradient(175deg, var(--gold-hell) 0%, var(--gold) 100%);
+  border: 1px solid #7d5f13;
+  box-shadow: 0 3px 0 #7d5f13, 0 7px 16px rgba(45, 28, 12, 0.35);
+}
+
+.taste-gold:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+.taste-gold:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #7d5f13; }
+
+.taste-schlicht {
+  color: var(--tinte-zart);
+  background: transparent;
+  border: 1px solid rgba(141, 111, 67, 0.65);
+}
+
+.taste-schlicht:hover { background: rgba(141, 111, 67, 0.12); color: var(--tinte); }
+
+.taste:disabled { opacity: 0.42; cursor: not-allowed; filter: grayscale(0.45); }
+
+.taste:focus-visible { outline: 2px solid var(--rubrik); outline-offset: 3px; }
+
+/* ---------- Die Chronik ---------- */
+
+.chronik-blatt {
+  padding: 1.7rem clamp(1rem, 3.5vw, 2.2rem);
+  background: rgba(255, 251, 238, 0.72);
+  border: 1px solid rgba(141, 111, 67, 0.5);
+  border-left: 4px solid var(--gold);
+  border-radius: 3px;
+}
+
+.chronik-titel {
+  font-family: var(--kapital);
+  font-size: clamp(1.35rem, 4.5vw, 1.95rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--tinte);
+  margin: 0;
+}
+
+.chronik-brauerei {
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--rubrik);
+  margin: 0.3rem 0 1.3rem;
+}
+
+/* Tafel der Eckdaten */
+.tafel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 1px;
+  margin: 0 0 1.7rem;
+  background: rgba(141, 111, 67, 0.4);
+  border: 1px solid rgba(141, 111, 67, 0.4);
+}
+
+.tafel div {
+  padding: 0.7rem 0.9rem;
+  background: rgba(255, 251, 238, 0.95);
+}
+
+.tafel dt {
+  font-family: var(--kapital);
+  font-size: 0.63rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 0.2rem;
+}
+
+.tafel dd { margin: 0; font-size: 0.98rem; color: var(--tinte); }
+
+.chronik-abschnitt { margin: 1.7rem 0 0; }
+
+.chronik-abschnitt h4 {
+  font-family: var(--kapital);
+  font-size: 0.78rem;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--rubrik);
+  margin: 0 0 0.6rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(156, 43, 19, 0.28);
+}
+
+.chronik-abschnitt p { margin: 0 0 0.9rem; text-align: justify; hyphens: auto; }
+
+/* Illuminierte Initiale */
+.initiale::first-letter {
+  float: left;
+  font-family: var(--fraktur);
+  font-size: 3.9em;
+  line-height: 0.78;
+  margin: 0.1em 0.11em 0 0;
+  padding: 0.07em 0.1em;
+  color: var(--rubrik);
+  background: linear-gradient(160deg, rgba(217, 182, 74, 0.28), rgba(217, 182, 74, 0.06));
+  border: 1px solid var(--gold);
+  text-shadow: 0 1px 0 rgba(255, 246, 216, 0.85);
+}
+
+.merkmale { margin: 0; padding-left: 1.3rem; }
+.merkmale li { margin-bottom: 0.45rem; }
+.merkmale li::marker { color: var(--gold); content: "\273B  "; }
+
+.chronik-hinweis {
+  margin: 1.7rem 0 0;
+  padding: 0.9rem 1.1rem;
+  font-size: 0.9rem;
+  font-style: italic;
+  color: var(--tinte-zart);
+  background: rgba(156, 43, 19, 0.06);
+  border-left: 3px solid rgba(156, 43, 19, 0.42);
+}
+
+.siegel {
+  display: inline-block;
+  font-family: var(--kapital);
+  font-size: 0.63rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.7rem;
+  margin-bottom: 1rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.siegel-hoch    { color: #3f6212; background: rgba(101, 163, 13, 0.13); }
+.siegel-mittel  { color: var(--gold); background: rgba(169, 130, 31, 0.13); }
+.siegel-niedrig { color: var(--rubrik); background: rgba(156, 43, 19, 0.10); }
+
+/* ---------- Zustände: Warten und Fehler ---------- */
+
+.warten {
+  text-align: center;
+  padding: 2.6rem 1rem;
+  color: var(--tinte-zart);
+}
+
+.warten-symbol {
+  font-size: 2.4rem;
+  margin: 0 0 0.8rem;
+  animation: schwenken 2.1s ease-in-out infinite;
+}
+
+@keyframes schwenken {
+  0%, 100% { transform: rotate(-11deg); }
+  50%      { transform: rotate(11deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .warten-symbol { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+.warten p { font-style: italic; margin: 0; }
+
+.fehler {
+  padding: 1.2rem 1.4rem;
+  color: #6b1d0d;
+  background: rgba(156, 43, 19, 0.09);
+  border: 1px solid rgba(156, 43, 19, 0.35);
+  border-left: 4px solid var(--rubrik);
+  border-radius: 3px;
+}
+
+.fehler strong { font-family: var(--kapital); letter-spacing: 0.06em; }
+.fehler p { margin: 0.5rem 0 0; }
+
+/* ---------- Schlüsselkammer ---------- */
+
+.schluesselkammer summary {
+  font-family: var(--kapital);
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0.7rem 0;
+  color: var(--tinte-zart);
+}
+
+.schluesselkammer summary:hover { color: var(--tinte); }
+
+.kammer-inhalt { padding-top: 0.9rem; }
+
+.warnung {
+  padding: 1rem 1.2rem;
+  font-size: 0.92rem;
+  background: rgba(156, 43, 19, 0.08);
+  border-left: 3px solid var(--rubrik);
+  border-radius: 2px;
+  margin: 0 0 1.3rem;
+}
+
+.feld { display: block; margin-bottom: 1rem; }
+
+.feld span {
+  display: block;
+  font-family: var(--kapital);
+  font-size: 0.68rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 0.4rem;
+}
+
+.feld input {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.92rem;
+  color: var(--tinte);
+  background: rgba(255, 252, 242, 0.9);
+  border: 1px solid rgba(141, 111, 67, 0.6);
+  border-radius: 2px;
+}
+
+.feld input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+.kammer-status {
+  text-align: center;
+  font-style: italic;
+  font-size: 0.9rem;
+  min-height: 1.4em;
+  margin: 0.9rem 0 0;
+}
+
+.kammer-status.gut  { color: #3f6212; }
+.kammer-status.warn { color: var(--rubrik); }
+
+/* ---------- Fuß ---------- */
+
+footer {
+  margin-top: 3rem;
+  padding-top: 0.5rem;
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--tinte-zart);
+}
+
+footer p { margin: 0.3rem 0; }
+
+.zart { opacity: 0.72; font-size: 0.92em; }
+
+code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  background: rgba(141, 111, 67, 0.16);
+  border-radius: 2px;
+}
+
+a { color: var(--rubrik); text-underline-offset: 3px; }
+a:hover { color: var(--gold); }
+
+@media (max-width: 34rem) {
+  .pergament { box-shadow: 0 0 0 5px rgba(45,28,12,0.55), 0 0 0 6px var(--gold), 0 14px 34px rgba(0,0,0,0.6); }
+  .tafel { grid-template-columns: 1fr 1fr; }
+  h2 { gap: 0.6rem; }
+}

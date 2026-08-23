@@ -4,103 +4,110 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bier Expert</title>
-  <style>
-    :root {
-      --bier: #f0a500;
-      --schaum: #fff8e7;
-      --dunkel: #3b2412;
-      --text: #2b2b2b;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: "Segoe UI", Helvetica, Arial, sans-serif;
-      color: var(--text);
-      background: linear-gradient(180deg, var(--schaum) 0%, var(--bier) 100%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem 1rem;
-    }
-
-    header {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(2.5rem, 8vw, 4.5rem);
-      color: var(--dunkel);
-      letter-spacing: 0.05em;
-    }
-
-    .untertitel {
-      margin-top: 0.5rem;
-      font-size: 1.15rem;
-      color: var(--dunkel);
-      opacity: 0.8;
-    }
-
-    main {
-      background: rgba(255, 255, 255, 0.85);
-      border-radius: 12px;
-      padding: 2rem;
-      max-width: 640px;
-      width: 100%;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    }
-
-    h2 {
-      margin-top: 0;
-      color: var(--dunkel);
-    }
-
-    ul {
-      line-height: 1.8;
-      padding-left: 1.2rem;
-    }
-
-    footer {
-      margin-top: 2rem;
-      font-size: 0.9rem;
-      color: var(--dunkel);
-      opacity: 0.75;
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
 </head>
 <body>
-  <header>
+
+<div class="kerzenschein" aria-hidden="true"></div>
+
+<div class="pergament">
+
+  <header class="scriptorium">
+    <svg class="bogen" viewBox="0 0 200 170" aria-hidden="true">
+      <path d="M 30 170 L 30 100 A 92.9 92.9 0 0 1 100.0 10 A 92.9 92.9 0 0 1 170 100 L 170 170" fill="none" stroke="currentColor" stroke-width="2.5"/>
+      <path d="M 42 170 L 42 100 A 76.2 76.2 0 0 1 100.0 26 A 76.2 76.2 0 0 1 158 100 L 158 170" fill="none" stroke="currentColor" stroke-width="1" opacity="0.55"/>
+    </svg>
+    <p class="kreuz">&#10013;</p>
     <h1>Bier Expert</h1>
-    <p class="untertitel">Alles rund um Bier &ndash; Wissen, Sorten und Genuss</p>
+    <p class="devise">Chronica Cerevisiae</p>
+    <p class="untertitel">Die Chronik der Braukunst &mdash; lege ein Bildnis vor,<br>und die Geschichte des Gebr&auml;us wird dir kundgetan</p>
+    <p class="fleuron" aria-hidden="true">&#10087;</p>
   </header>
 
   <main>
-    <h2>Willkommen</h2>
-    <p>
-      Bier Expert ist deine Anlaufstelle f&uuml;r alles, was mit Bier zu tun hat.
-      Hier entsteht Schritt f&uuml;r Schritt eine Sammlung von Wissen rund um
-      Braukunst, Biersorten und Verkostung.
-    </p>
 
-    <h2>Themen</h2>
-    <ul>
-      <li>Biersorten und ihre Merkmale</li>
-      <li>Zutaten: Malz, Hopfen, Hefe und Wasser</li>
-      <li>Der Brauprozess einfach erkl&auml;rt</li>
-      <li>Verkostung und Bewertung</li>
-      <li>Bier und Speisen kombinieren</li>
-    </ul>
+    <!-- ============ Schritt I: Bildnis darbringen ============ -->
+    <section class="kapitel" aria-labelledby="h-upload">
+      <h2 id="h-upload"><span class="ziffer">I</span> Das Bildnis darbringen</h2>
+
+      <div class="ablage" id="ablage" tabindex="0" role="button"
+           aria-describedby="ablage-hinweis">
+        <svg class="ablage-bogen" viewBox="0 0 200 260" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M12 258 L12 108 Q12 14 100 6 Q188 14 188 108 L188 258"
+                fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="7 6"/>
+        </svg>
+        <div class="ablage-inhalt">
+          <p class="ablage-symbol" aria-hidden="true">&#127866;</p>
+          <p class="ablage-ruf">Bierflasche hierher ziehen</p>
+          <p id="ablage-hinweis" class="ablage-klein">
+            oder klicken zum Ausw&auml;hlen &middot; auch Einf&uuml;gen mit Strg+V<br>
+            <span class="zart">JPEG, PNG, WebP oder GIF &middot; bis 20 MB</span>
+          </p>
+        </div>
+        <img id="vorschau" class="vorschau" alt="Vorschau der hochgeladenen Bierflasche" hidden>
+      </div>
+
+      <input type="file" id="datei" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+
+      <p class="dateiname" id="dateiname" hidden></p>
+
+      <div class="tastenreihe">
+        <button type="button" id="befragen" class="taste taste-gold" disabled>
+          Die Chronik befragen
+        </button>
+        <button type="button" id="verwerfen" class="taste taste-schlicht" hidden>
+          Bildnis verwerfen
+        </button>
+      </div>
+    </section>
+
+    <!-- ============ Schritt II: Die Chronik ============ -->
+    <section class="kapitel" id="kapitel-chronik" aria-labelledby="h-chronik" hidden>
+      <h2 id="h-chronik"><span class="ziffer">II</span> Die Chronik des Gebr&auml;us</h2>
+      <div id="chronik" aria-live="polite"></div>
+    </section>
+
   </main>
 
+  <!-- ============ Schlüsselkammer ============ -->
+  <aside class="kapitel schluesselkammer" aria-labelledby="h-schluessel">
+    <details id="kammer">
+      <summary id="h-schluessel">&#128273; Schl&uuml;sselkammer &mdash; API-Schl&uuml;ssel hinterlegen</summary>
+      <div class="kammer-inhalt">
+        <p class="warnung">
+          <strong>Achtung, werter Leser:</strong> Diese Seite ist reiner Frontend-Code ohne
+          Server. Dein Schl&uuml;ssel wird nur im <code>localStorage</code> dieses Browsers
+          abgelegt und direkt an die Anthropic-API gesendet. Das ist f&uuml;r den
+          <em>lokalen, pers&ouml;nlichen</em> Gebrauch gedacht. Ver&ouml;ffentliche diese Seite
+          niemals mit einem Schl&uuml;ssel &mdash; wer sie aufruft, kann ihn auslesen und auf
+          deine Rechnung nutzen.
+        </p>
+        <label class="feld">
+          <span>Anthropic API-Schl&uuml;ssel</span>
+          <input type="password" id="schluessel" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+        </label>
+        <div class="tastenreihe">
+          <button type="button" id="schluessel-speichern" class="taste taste-gold">Verwahren</button>
+          <button type="button" id="schluessel-loeschen" class="taste taste-schlicht">Aus dem Browser tilgen</button>
+        </div>
+        <p class="kammer-status" id="kammer-status" role="status"></p>
+        <p class="zart">
+          Einen Schl&uuml;ssel erh&auml;ltst du unter
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.
+        </p>
+      </div>
+    </details>
+  </aside>
+
   <footer>
-    &copy; 2026 Bier Expert
+    <p class="fleuron" aria-hidden="true">&#10087;</p>
+    <p>&copy; 2026 Bier Expert &middot; <span class="zart">Angaben der Chronik k&ouml;nnen irren &mdash; pr&uuml;fe sie am Etikett</span></p>
   </footer>
+
+</div>
+
+<script type="module" src="/src/main.ts"></script>
 </body>
 </html>
