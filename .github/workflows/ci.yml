@@ -12,8 +12,13 @@ on:
 
 # Ein neuer Push auf denselben Branch bricht den laufenden Lauf ab —
 # Ergebnisse zu einem überholten Stand nützen niemandem.
+#
+# github.workflow gehört in die Gruppe: Wird diese Datei per workflow_call
+# aus dem Deploy aufgerufen, trägt sie dort den Namen des Aufrufers. Ohne
+# das landen der eigenständige CI-Lauf und der vom Deploy aufgerufene beim
+# selben Push in derselben Gruppe — und brechen sich gegenseitig ab.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
