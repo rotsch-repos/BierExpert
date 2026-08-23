@@ -35,16 +35,15 @@ auch dann noch, wenn der Build gerade nicht durchläuft.
 
 ## Einmalige Einrichtung
 
-### 1. Auf dem Server
+### 1. Auf dem Server: nichts zu tun
 
-Der Ablageordner muss **außerhalb** des Wurzelverzeichnisses liegen — läge er
-darin, würde ihn das Aufräumen beim nächsten Deploy mitlöschen, und er wäre
-zudem öffentlich abrufbar. Das Skript bricht ab, wenn das der Fall ist.
+Die Verzeichnisse legt das Deploy selbst an (`mkdir -p`), das Wurzelverzeichnis
+eingeschlossen. Es genügt, dass der SSH-Zugang steht.
 
-```bash
-ssh atozadec@atozadec.myhostpoint.ch
-mkdir -p ~/deploy/bierexpert/releases
-```
+Zu beachten ist nur, **wo** der Ablageordner liegt: außerhalb des
+Wurzelverzeichnisses. Läge er darin, würde ihn das Aufräumen beim nächsten
+Deploy mitlöschen, und er wäre obendrein öffentlich abrufbar. Das Skript prüft
+das und bricht ab, wenn es der Fall ist.
 
 ### 2. Repository-Variablen
 
