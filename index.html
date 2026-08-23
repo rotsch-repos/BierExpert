@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bier Expert</title>
+  <style>
+    :root {
+      --bier: #f0a500;
+      --schaum: #fff8e7;
+      --dunkel: #3b2412;
+      --text: #2b2b2b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, var(--schaum) 0%, var(--bier) 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.5rem, 8vw, 4.5rem);
+      color: var(--dunkel);
+      letter-spacing: 0.05em;
+    }
+
+    .untertitel {
+      margin-top: 0.5rem;
+      font-size: 1.15rem;
+      color: var(--dunkel);
+      opacity: 0.8;
+    }
+
+    main {
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: 12px;
+      padding: 2rem;
+      max-width: 640px;
+      width: 100%;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    h2 {
+      margin-top: 0;
+      color: var(--dunkel);
+    }
+
+    ul {
+      line-height: 1.8;
+      padding-left: 1.2rem;
+    }
+
+    footer {
+      margin-top: 2rem;
+      font-size: 0.9rem;
+      color: var(--dunkel);
+      opacity: 0.75;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Bier Expert</h1>
+    <p class="untertitel">Alles rund um Bier &ndash; Wissen, Sorten und Genuss</p>
+  </header>
+
+  <main>
+    <h2>Willkommen</h2>
+    <p>
+      Bier Expert ist deine Anlaufstelle f&uuml;r alles, was mit Bier zu tun hat.
+      Hier entsteht Schritt f&uuml;r Schritt eine Sammlung von Wissen rund um
+      Braukunst, Biersorten und Verkostung.
+    </p>
+
+    <h2>Themen</h2>
+    <ul>
+      <li>Biersorten und ihre Merkmale</li>
+      <li>Zutaten: Malz, Hopfen, Hefe und Wasser</li>
+      <li>Der Brauprozess einfach erkl&auml;rt</li>
+      <li>Verkostung und Bewertung</li>
+      <li>Bier und Speisen kombinieren</li>
+    </ul>
+  </main>
+
+  <footer>
+    &copy; 2026 Bier Expert
+  </footer>
+</body>
+</html>
