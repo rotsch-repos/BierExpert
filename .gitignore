@@ -1,0 +1,26 @@
+# Betriebssystem
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editoren / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs und temporäre Dateien
+*.log
+*.tmp
+tmp/
+
+# Abhängigkeiten und Build-Ausgaben (falls später ein Toolchain dazukommt)
+node_modules/
+dist/
+build/
+.cache/
+
+# Umgebungsvariablen
+.env
+.env.local
