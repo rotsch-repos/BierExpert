@@ -94,6 +94,25 @@ jobs:
           CFG
           chmod 600 ~/.ssh/config
 
+      # Vor dem Ausliefern: Sonst stünden die Endpunkte einen Augenblick lang
+      # ohne Zugangsdaten da und meldeten "Server noch nicht eingerichtet".
+      - name: Konfiguration auf den Server schreiben
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          DB_HOST: ${{ vars.DB_HOST }}
+          DB_NAME: ${{ vars.DB_NAME }}
+          DB_USER: ${{ vars.DB_USER }}
+          DB_PASSWORT: ${{ secrets.DB_PASSWORT }}
+          # Die Adresse zeigt auf den Rechner zu Hause, an dem das Modell
+          # hängt — deshalb ein Secret und keine Variable.
+          LLM_ENDPUNKT: ${{ secrets.LLM_ENDPUNKT }}
+          LLM_SCHLUESSEL: ${{ secrets.LLM_SCHLUESSEL }}
+          LLM_MODELL: ${{ vars.LLM_MODELL }}
+          LLM_MODELL_SCHNELL: ${{ vars.LLM_MODELL_SCHNELL }}
+        run: ./deploy/konfiguration.sh
+
       - name: Ausliefern
         env:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
@@ -151,6 +170,30 @@ jobs:
           grep -q 'Bier Expert' /tmp/seite.html \
             || { echo "::error::HTTP 200, aber der Titel fehlt — antwortet dort die richtige Seite?"; exit 1; }
           echo "Erreichbar, HTTP 200, Titel stimmt."
+
+      # Ob die Seite lädt, sagt nichts darüber, ob eine Auswertung durchkäme.
+      # Dieser Endpunkt beantwortet in einem Aufruf, ob PHP, Datenbank und
+      # Modell stehen — ohne ihn beginnt jede Fehlersuche mit Raten.
+      - name: Nachsehen, ob die Endpunkte bereit sind
+        if: ${{ vars.DEPLOY_URL != '' && !inputs.probelauf }}
+        continue-on-error: true
+        run: |
+          befund=$(curl -sS -L -m 60 "${{ vars.DEPLOY_URL }}/api/gesundheit.php" || echo '{}')
+          echo "$befund" | python3 -m json.tool 2>/dev/null || echo "$befund"
+
+          bereit=$(echo "$befund" | python3 -c \
+            'import json,sys; print(json.load(sys.stdin).get("bereit", False))' 2>/dev/null || echo False)
+
+          # Bewusst kein harter Abbruch: Die Auslieferung ist an dieser
+          # Stelle durch und in Ordnung. Was hier fehlt, liegt am Rechner mit
+          # dem Modell oder an der Datenbank — beides lässt sich nachziehen,
+          # ohne neu auszuliefern.
+          if [ "$bereit" != "True" ]; then
+            echo "::warning title=Ausgeliefert, aber noch nicht auswertbar::Die Seite steht, \
+          aber /api/gesundheit.php meldet nicht bereit. Der Befund oben sagt, woran es liegt."
+          else
+            echo "Alles bereit: PHP, Datenbank und Sprachmodell antworten."
+          fi
 
       - name: Schlüssel entfernen
         if: always()

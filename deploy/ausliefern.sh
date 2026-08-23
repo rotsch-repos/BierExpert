@@ -69,6 +69,11 @@ $SSH "$ZIEL" "
   test -d '${STAND}/assets'
   # Die index.html verweist auf gehashte Dateien — mindestens eine muss da sein.
   ls '${STAND}/assets/'*.js >/dev/null 2>&1
+  # Ohne die Endpunkte steht zwar die Seite, aber jede Auswertung schlägt
+  # fehl. Ein solcher Stand darf nicht aktiv werden.
+  test -s '${STAND}/api/etikett.php'
+  test -s '${STAND}/api/erweitert.php'
+  test -s '${STAND}/api/intern/pforte.php'
 " || {
   echo "FEHLER: Der übertragene Stand ist unvollständig. Nicht übernommen." >&2
   # Den Torso wegräumen. Bliebe er liegen, wäre er der neueste Eintrag im

@@ -1,0 +1,279 @@
+<?php
+
+declare(strict_types=1);
+
+defined('BIEREXPERT') || exit;
+
+/**
+ * Der Draht zum eigenen Sprachmodell.
+ *
+ * Das Modell läuft nicht hier, sondern auf dem Rechner des Betreibers und ist
+ * über einen Tunnel erreichbar. Dieses Backend sitzt dazwischen, aus einem
+ * Grund: Läge der Aufruf im Browser, stünde die Adresse des Modells — und ein
+ * etwaiger Schlüssel dafür — in jedem Seitenquelltext. Ein Modell auf eigener
+ * Hardware ist keins mit Abrechnung nach Verbrauch, aber es ist auch keins,
+ * das die halbe Welt benutzen soll.
+ *
+ * Angesprochen wird /api/chat mit stream=false. Nicht gestreamt, weil das
+ * Frontend die Antwort ohnehin erst vollständig braucht: Es baut daraus eine
+ * Zerlegung mit Markierungen, kein fortlaufendes Textband.
+ */
+
+/**
+ * Ruft das Modell auf und gibt die geprüfte Antwort als Array zurück.
+ *
+ * @param string      $anweisung   Die Systemanweisung
+ * @param string      $frage       Was der Benutzer fragt
+ * @param array       $schema      JSON-Schema, dem die Antwort folgen MUSS
+ * @param string|null $bildBase64  Das Foto, falls das Modell es sehen soll
+ * @param bool        $schnell     Kleines Modell und kurze Zeitgrenze
+ */
+function modellFragen(
+    string $anweisung,
+    string $frage,
+    array $schema,
+    ?string $bildBase64 = null,
+    bool $schnell = false,
+): array {
+    $llm = konfiguration()['llm'];
+
+    if ($llm['endpunkt'] === '') {
+        throw new BierFehler(
+            'Es ist kein Sprachmodell hinterlegt.',
+            'In der Konfiguration fehlt llm.endpunkt — die Adresse, unter der Ollama antwortet.',
+            503,
+        );
+    }
+
+    $nachricht = ['role' => 'user', 'content' => $frage];
+    if ($bildBase64 !== null) {
+        // Ollama erwartet das Bild als base64 ohne den "data:"-Vorspann —
+        // genau so, wie es das Frontend ohnehin schickt.
+        $nachricht['images'] = [$bildBase64];
+    }
+
+    $rumpf = [
+        'model' => $schnell ? $llm['modell_schnell'] : $llm['modell'],
+        'messages' => [
+            ['role' => 'system', 'content' => $anweisung],
+            $nachricht,
+        ],
+        'stream' => false,
+        // Das Schema wird serverseitig in eine Grammatik übersetzt, die das
+        // Modell beim Erzeugen einschränkt. Es KANN dann nichts anderes
+        // ausgeben als eine Antwort dieser Form.
+        'format' => $schema,
+        'options' => [
+            // Niedrig: Gefragt sind Tatsachen vom Etikett, keine Einfälle.
+            'temperature' => $schnell ? 0.1 : 0.4,
+            // Ein Bild belegt je nach Auflösung schnell mehrere tausend
+            // Token. Bleibt der Kontext auf der Voreinstellung von 4096,
+            // fällt der Anfang der Anweisung heraus — und das Modell
+            // antwortet auf eine Frage, die es nur noch halb kennt.
+            'num_ctx' => $schnell ? 8192 : 16384,
+        ],
+        // Hält das Modell nach dem Aufruf geladen. Der zweite Aufruf eines
+        // Scans trifft es dann warm an, statt erneut zu warten, bis
+        // dreissig Gigabyte im Speicher stehen.
+        'keep_alive' => '15m',
+    ];
+
+    $antwort = anfragen(
+        $llm['endpunkt'] . '/api/chat',
+        $rumpf,
+        $schnell ? $llm['zeitgrenze_schnell'] : $llm['zeitgrenze'],
+        $llm['schluessel'],
+    );
+
+    $inhalt = $antwort['message']['content'] ?? null;
+
+    if (!is_string($inhalt) || trim($inhalt) === '') {
+        throw new BierFehler(
+            'Das Sprachmodell hat nichts geantwortet.',
+            'Läuft das Modell "' . $rumpf['model'] . '"? Ein "ollama list" auf dem Server zeigt es.',
+        );
+    }
+
+    return jsonAusAntwort($inhalt);
+}
+
+/**
+ * Schält das JSON aus der Modellantwort.
+ *
+ * Mit erzwungener Grammatik sollte der Inhalt reines JSON sein. Sollte.
+ * Manche Modelle stellen trotzdem einen Gedankengang voran oder legen einen
+ * Code-Zaun darum. Das kostet hier drei Zeilen und erspart einen
+ * Fehlschlag, dessen Ursache man dem Frontend nicht ansieht.
+ */
+function jsonAusAntwort(string $inhalt): array
+{
+    $text = trim($inhalt);
+
+    $anfang = strpos($text, '{');
+    $ende = strrpos($text, '}');
+
+    if ($anfang === false || $ende === false || $ende <= $anfang) {
+        throw new BierFehler(
+            'Die Antwort des Sprachmodells war kein JSON.',
+            'Unterstützt das Modell strukturierte Ausgaben? Modelle ohne '
+                . 'Grammatikunterstützung ignorieren das Feld "format" stillschweigend.',
+        );
+    }
+
+    $roh = substr($text, $anfang, $ende - $anfang + 1);
+
+    try {
+        $daten = json_decode($roh, true, 64, JSON_THROW_ON_ERROR);
+    } catch (JsonException $fehler) {
+        throw new BierFehler(
+            'Die Antwort des Sprachmodells war unlesbar.',
+            $fehler->getMessage(),
+        );
+    }
+
+    if (!is_array($daten)) {
+        throw new BierFehler('Die Antwort des Sprachmodells hatte nicht die erwartete Form.');
+    }
+
+    return $daten;
+}
+
+/** Ein POST mit JSON hin und JSON zurück. */
+function anfragen(string $adresse, array $rumpf, int $zeitgrenze, string $schluessel): array
+{
+    $kopfzeilen = ['Content-Type: application/json', 'Accept: application/json'];
+    if ($schluessel !== '') {
+        // Für den Fall, dass vor Ollama ein nginx steht, der einen Schlüssel
+        // verlangt. Ollama selbst kennt keine Anmeldung.
+        $kopfzeilen[] = 'Authorization: Bearer ' . $schluessel;
+    }
+
+    $griff = curl_init($adresse);
+
+    if ($griff === false) {
+        throw new BierFehler('Die Anfrage an das Sprachmodell liess sich nicht vorbereiten.', null, 500);
+    }
+
+    curl_setopt_array($griff, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($rumpf, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        CURLOPT_HTTPHEADER => $kopfzeilen,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => $zeitgrenze,
+        // Getrennt von der Gesamtzeit: Steht der Tunnel nicht, soll das
+        // nach zehn Sekunden feststehen und nicht nach fünf Minuten.
+        CURLOPT_CONNECTTIMEOUT => 10,
+        // Die Adresse ist fest hinterlegt. Einer Umleitung zu folgen hiesse,
+        // das Bild an einen Ort zu schicken, den niemand eingetragen hat.
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+    ]);
+
+    $roh = curl_exec($griff);
+    $status = (int) curl_getinfo($griff, CURLINFO_RESPONSE_CODE);
+    $fehlernummer = curl_errno($griff);
+    $fehlertext = curl_error($griff);
+    curl_close($griff);
+
+    if ($fehlernummer !== 0) {
+        throw netzFehler($fehlernummer, $fehlertext, $adresse, $zeitgrenze);
+    }
+
+    if ($status < 200 || $status >= 300) {
+        throw statusFehler($status, is_string($roh) ? $roh : '', $adresse);
+    }
+
+    try {
+        $daten = json_decode((string) $roh, true, 64, JSON_THROW_ON_ERROR);
+    } catch (JsonException) {
+        throw new BierFehler(
+            'Unter der Adresse des Sprachmodells antwortet etwas anderes.',
+            'Zurück kam kein JSON, sondern: ' . kurz((string) $roh),
+        );
+    }
+
+    if (!is_array($daten)) {
+        throw new BierFehler('Das Sprachmodell hat unerwartet geantwortet.');
+    }
+
+    return $daten;
+}
+
+/** Übersetzt einen Verbindungsfehler in etwas Handlungsfähiges. */
+function netzFehler(int $nummer, string $text, string $adresse, int $zeitgrenze): BierFehler
+{
+    $wirt = parse_url($adresse, PHP_URL_HOST) ?: $adresse;
+
+    return match ($nummer) {
+        CURLE_OPERATION_TIMEDOUT => new BierFehler(
+            'Das Sprachmodell hat nicht rechtzeitig geantwortet.',
+            'Nach ' . $zeitgrenze . ' Sekunden kam nichts zurück. Ein grosses Modell braucht '
+                . 'beim ersten Aufruf lange, weil es erst in den Speicher geladen wird — '
+                . 'der zweite Versuch ist meist deutlich schneller.',
+            504,
+        ),
+        CURLE_COULDNT_CONNECT, CURLE_COULDNT_RESOLVE_HOST => new BierFehler(
+            'Das Sprachmodell ist nicht erreichbar.',
+            'Keine Verbindung zu ' . $wirt . '. Läuft der Rechner, läuft Ollama, steht der Tunnel?',
+            503,
+        ),
+        CURLE_SSL_CACERT, CURLE_PEER_FAILED_VERIFICATION, CURLE_SSL_CONNECT_ERROR => new BierFehler(
+            'Das Zertifikat des Sprachmodells wurde nicht akzeptiert.',
+            $text,
+            502,
+        ),
+        default => new BierFehler('Die Verbindung zum Sprachmodell ist gescheitert.', $text),
+    };
+}
+
+/** Übersetzt einen Fehlerstatus in etwas Handlungsfähiges. */
+function statusFehler(int $status, string $rumpf, string $adresse): BierFehler
+{
+    // Ollama legt seine Fehler unter "error" ab. Steht da etwas, ist es die
+    // genauere Auskunft als alles, was sich hier formulieren liesse.
+    $gemeldet = '';
+    $daten = json_decode($rumpf, true);
+    if (is_array($daten) && isset($daten['error']) && is_string($daten['error'])) {
+        $gemeldet = $daten['error'];
+    }
+
+    return match (true) {
+        $status === 401 || $status === 403 => new BierFehler(
+            'Der Zugang zum Sprachmodell wurde abgewiesen.',
+            'Steht ein nginx davor, der einen Schlüssel verlangt? Der gehört in der '
+                . 'Konfiguration unter llm.schluessel.',
+            502,
+        ),
+        $status === 404 => new BierFehler(
+            'Unter dieser Adresse antwortet Ollama nicht.',
+            ($gemeldet !== '' ? $gemeldet . ' — ' : '')
+                . 'Erwartet wird ' . $adresse . '. Zeigt llm.endpunkt auf die Wurzel des '
+                . 'Dienstes, ohne "/api" am Ende?',
+            502,
+        ),
+        $status === 413 => new BierFehler(
+            'Das Bild war für den Server vor dem Modell zu gross.',
+            'In der nginx-Konfiguration client_max_body_size erhöhen — ein Foto als base64 '
+                . 'braucht schnell mehrere Megabyte.',
+            502,
+        ),
+        $status >= 500 => new BierFehler(
+            'Das Sprachmodell meldet einen Fehler.',
+            $gemeldet !== '' ? $gemeldet : kurz($rumpf),
+            502,
+        ),
+        default => new BierFehler(
+            'Das Sprachmodell hat mit Status ' . $status . ' geantwortet.',
+            $gemeldet !== '' ? $gemeldet : kurz($rumpf),
+            502,
+        ),
+    };
+}
+
+/** Kürzt Fremdtext, damit eine HTML-Fehlerseite nicht die ganze Antwort füllt. */
+function kurz(string $text, int $zeichen = 300): string
+{
+    $text = trim(preg_replace('/\s+/', ' ', strip_tags($text)) ?? '');
+    return strlen($text) > $zeichen ? substr($text, 0, $zeichen) . ' …' : $text;
+}

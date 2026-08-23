@@ -1,0 +1,19 @@
+# Dieser Ordner enthält keine Seiten, sondern die Bausteine dahinter.
+#
+# Die Dateien darin brechen beim direkten Aufruf ohnehin von selbst ab —
+# sie prüfen auf eine Konstante, die nur der Einstieg setzt. Das hier ist
+# die zweite Sperre: Sie greift auch dann noch, wenn PHP gerade nicht läuft
+# und der Server den Quelltext als Text ausliefern würde.
+
+# Apache 2.4
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+
+# Apache 2.2 — Hostpoint ist längst darüber hinaus, aber die zwei Zeilen
+# kosten nichts und verhindern, dass die Sperre auf einem älteren Server
+# stillschweigend wirkungslos ist.
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>

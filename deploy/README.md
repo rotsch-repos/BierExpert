@@ -56,8 +56,13 @@ das und bricht ab, wenn es der Fall ist.
 | `DEPLOY_DOCROOT`  | `/home/atozadec/www/bierexpert.de`   |
 | `DEPLOY_BASIS`    | `/home/atozadec/deploy/bierexpert`   |
 | `DEPLOY_URL`      | `https://bierexpert.de`              |
+| `DB_HOST`         | `atozadec.mysql.db.internal`         |
+| `DB_NAME`         | `atozadec_bierexpert`                |
+| `DB_USER`         | `atozadec_expert`                    |
 
-Optional: `DEPLOY_PORT` (Vorgabe 22), `DEPLOY_BEHALTEN` (Vorgabe 5).
+Optional: `DEPLOY_PORT` (Vorgabe 22), `DEPLOY_BEHALTEN` (Vorgabe 5),
+`LLM_MODELL` (Vorgabe `qwen3-vl:32b`), `LLM_MODELL_SCHNELL` (Vorgabe
+`qwen3-vl:8b`).
 
 Diese Werte sind bewusst Variablen und keine Secrets: Sie sind nicht geheim,
 und in den Protokollen sichtbare Pfade helfen bei der Fehlersuche. Geheim ist
@@ -71,6 +76,18 @@ nur der Schlüssel.
 | ------------------ | --------------------------------------------------------- |
 | `SSH_PRIVATE_KEY`  | Der **private** Schlüssel, vollständig mit Kopf- und Fußzeile |
 | `SSH_KNOWN_HOSTS`  | Der Fingerabdruck des Servers                              |
+| `DB_PASSWORT`      | Das Passwort des Datenbankbenutzers                         |
+| `LLM_ENDPUNKT`     | Adresse des Ollama-Dienstes, **ohne** `/api` am Ende         |
+| `LLM_SCHLUESSEL`   | Nur, wenn ein nginx davor einen Schlüssel verlangt           |
+
+`LLM_ENDPUNKT` ist als Secret angelegt und nicht als Variable: Die Adresse
+zeigt auf den Rechner zu Hause, an dem das Modell hängt. Sie ist kein
+Passwort, aber sie gehört auch nicht in ein öffentliches Protokoll.
+
+Fehlt `LLM_ENDPUNKT`, überspringt das Deploy das Schreiben der Konfiguration
+mit einem Hinweis im Protokoll — die Seite wird trotzdem ausgeliefert. Fehlt
+`DB_PASSWORT`, läuft die Anwendung ohne Zwischenspeicher: jeder Scan geht ans
+Modell. Beides sind Zustände, keine Fehler, und werden als solche gemeldet.
 
 Den privaten Schlüssel ausgeben:
 
@@ -204,12 +221,24 @@ als Variablen `DB_HOST`, `DB_NAME`, `DB_USER`.
 
 ## Was noch nicht abgedeckt ist
 
-Das Deploy liefert die statische Seite aus, und die Migrationen können laufen.
-Was fehlt, ist der serverseitige Code selbst: der PHP-Teil, der die Datenbank
-anspricht und das lokale Sprachmodell aufruft. Beides hängt an zwei Fragen, die
-in der Haupt-README unter „Offene Punkte" stehen — welcher Dienst das Modell
-bereitstellt, und wofür die Datenbank da sein soll.
+Die Migrationen hängen bewusst **nicht** am Deploy, sondern laufen von Hand
+(`migrationen.yml`). Ein Schemawechsel und ein Codewechsel sollen nicht
+zusammen in einem Schritt stecken: Fällt eine Auslieferung zurück, fällt das
+Schema nicht mit zurück, und eine Migration, die im selben Lauf wie das Deploy
+scheitert, liesse einen halben Zustand stehen.
 
-Die Migrationen sind bewusst noch nicht ans Deploy gehängt. Erst wenn es
-Tabellen gibt, die zu einem laufenden Backend gehören, ergibt ein automatischer
-Lauf Sinn; vorher wäre es ein Schritt, der bei jedem Deploy nichts tut.
+Der Preis dafür: Nach einer neuen Migration muss `migrationen.yml` einmal
+gestartet werden, sonst antwortet `/api/gesundheit.php` mit fehlenden Tabellen
+und jeder Scan geht ans Modell.
+
+## Nach dem Deploy: steht alles?
+
+```
+https://bierexpert.de/api/gesundheit.php
+```
+
+Ein Aufruf, drei Antworten: PHP mit seinen Erweiterungen, die Datenbank samt
+Tabellenständen, das Sprachmodell samt vorhandener Modelle. Das Deploy ruft ihn
+selbst auf und schreibt das Ergebnis ins Protokoll — findet es etwas, wird das
+als Warnung vermerkt und nicht als Fehlschlag: Die Auslieferung ist an dieser
+Stelle durch, und was fehlt, lässt sich nachziehen, ohne neu auszuliefern.
