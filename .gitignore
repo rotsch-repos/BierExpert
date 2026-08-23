@@ -24,3 +24,7 @@ build/
 # Umgebungsvariablen
 .env
 .env.local
+test-results/
+playwright-report/
+blob-report/
+.playwright/

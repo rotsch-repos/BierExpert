@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  # Erlaubt den Lauf von Hand, etwa um einen Flake auszuschließen.
+  workflow_dispatch:
+
+# Ein neuer Push auf denselben Branch bricht den laufenden Lauf ab —
+# Ergebnisse zu einem überholten Stand nützen niemandem.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pruefen:
+    name: Typen, Build und Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Muss zur "engines"-Angabe in der package.json passen.
+          node-version: '22'
+          cache: npm
+
+      # ci statt install: installiert exakt nach package-lock.json und
+      # schlägt fehl, wenn die Sperrdatei nicht zur package.json passt.
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Typen prüfen
+        run: npm run typecheck
+
+      - name: Bauen
+        run: npm run build
+
+      # Der Browser wird gecacht; ohne das lädt jeder Lauf rund 150 MB neu.
+      - name: Playwright-Browser aus dem Zwischenspeicher
+        id: browsercache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Playwright-Browser installieren
+        if: steps.browsercache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      # Nach einem Cache-Treffer fehlen die Systembibliotheken trotzdem,
+      # denn gecacht wird nur der Browser selbst.
+      - name: Systembibliotheken nachziehen
+        if: steps.browsercache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Tests
+        run: npm test
+
+      - name: Testbericht sichern
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-bericht
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Build sichern
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
