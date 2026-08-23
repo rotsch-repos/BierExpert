@@ -15,18 +15,31 @@
 <div class="huelle">
 
   <header class="kopf">
-    <span class="logo"><img src="/logo.svg" alt="" width="72" height="72"></span>
-    <div>
-      <h1 class="wortmarke display-lg">Bier Expert</h1>
-      <p class="kopf-devise label-caps">Etikettenkunde</p>
-    </div>
+    <a class="marke" href="#lesen">
+      <span class="logo"><img src="/logo.svg" alt="" width="56" height="56"></span>
+      <span>
+        <span class="wortmarke headline-md">Bier Expert</span>
+        <span class="kopf-devise label-caps">Etikettenkunde</span>
+      </span>
+    </a>
+
+    <nav class="hauptmenue" aria-label="Hauptmen&uuml;">
+      <a href="#lesen" class="menuepunkt label-caps" data-sicht="lesen">Etikett lesen</a>
+      <a href="#glossar" class="menuepunkt label-caps" data-sicht="glossar">Bierglossar</a>
+    </nav>
   </header>
 
-  <p class="einleitung body-lg">
-    Fotografier das Etikett &mdash; und erfahre, was jedes einzelne Element darauf
-    bedeutet. Wappen, Tiere, Kronen, Jahreszahlen: fast nichts davon ist Dekoration.
-    Danach hast du in der Runde etwas zu erz&auml;hlen.
-  </p>
+  <div class="banner">
+    <img src="/klostermauer.svg" alt="" aria-hidden="true">
+    <div class="banner-text">
+      <h1 class="banner-titel display-lg" id="banner-titel">Das Etikett lesen</h1>
+      <p class="banner-devise body-lg" id="banner-devise">
+        Fotografier das Etikett &mdash; und erfahre, was jedes einzelne Element darauf bedeutet.
+      </p>
+    </div>
+  </div>
+
+  <div class="sicht" id="sicht-lesen">
 
   <!-- ================= I. Foto ================= -->
   <section class="abschnitt" aria-labelledby="h-foto">
@@ -46,7 +59,7 @@
         </svg>
         <p class="ablage-ruf headline-sm">Bild hierher ziehen</p>
         <p id="ablage-hinweis" class="ablage-klein body-md">
-          oder klicken zum Ausw&auml;hlen &middot; auch Einf&uuml;gen mit Strg+V
+          Klicken zum Ausw&auml;hlen &middot; oder mit <kbd>Strg</kbd>+<kbd>V</kbd> direkt einf&uuml;gen
           <span class="ablage-formate mono-data">JPEG, PNG, WebP oder GIF &middot; bis 20 MB</span>
         </p>
       </div>
@@ -61,6 +74,7 @@
     <div class="tastenreihe">
       <button type="button" id="lesen" class="taste taste-primaer" disabled>Etikett auswerten</button>
       <button type="button" id="fotografieren" class="taste taste-sekundaer">Foto aufnehmen</button>
+      <button type="button" id="einfuegen" class="taste taste-sekundaer">Aus Zwischenablage</button>
       <button type="button" id="verwerfen" class="taste taste-sekundaer" hidden>Bild verwerfen</button>
     </div>
   </section>
@@ -74,23 +88,22 @@
     <div id="befund" aria-live="polite"></div>
   </section>
 
-  <!-- ================= III. Bierglossar ================= -->
-  <section class="abschnitt" aria-labelledby="h-glossar">
-    <div class="abschnitt-kopf">
-      <span class="abschnitt-nr label-caps">03</span>
-      <h2 id="h-glossar" class="abschnitt-titel headline-md">Bierglossar</h2>
-    </div>
+  </div><!-- /sicht-lesen -->
 
-    <p class="einleitung body-lg glossar-einleitung">
+  <!-- ================= Bierglossar (eigene Sicht) ================= -->
+  <div class="sicht" id="sicht-glossar" hidden>
+    <section class="abschnitt abschnitt-erste" aria-labelledby="h-glossar">
+      <p class="glossar-einleitung body-lg">
       Die Sorten und worin sie sich unterscheiden. Jede ist in ihrem typischen Glas
       gezeichnet &mdash; Farbe, Schaumkrone und Glasform sind die Merkmale, an denen
-      man eine Sorte im Glas erkennt.
-    </p>
+        man eine Sorte im Glas erkennt.
+      </p>
 
-    <div class="familienwahl" id="familienwahl" role="group" aria-label="Nach G&auml;rung filtern"></div>
+      <div class="familienwahl" id="familienwahl" role="group" aria-label="Nach G&auml;rung filtern"></div>
 
-    <div id="glossar"></div>
-  </section>
+      <div id="glossar" aria-labelledby="h-glossar"></div>
+    </section>
+  </div><!-- /sicht-glossar -->
 
   <!-- ================= Schlüsselkammer ================= -->
   <aside class="kammer">

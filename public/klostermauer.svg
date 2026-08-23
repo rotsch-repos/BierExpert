@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 440" preserveAspectRatio="xMidYMax slice" role="img" aria-label="Blick aus dem Kreuzgang eines Klosters in den Innenhof">
+  <defs>
+    <linearGradient id="hof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="55%"  stop-color="#f6f3ed"/>
+      <stop offset="100%" stop-color="#ebe8e2"/>
+    </linearGradient>
+    <linearGradient id="mauer" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#4e2c1c"/>
+      <stop offset="70%"  stop-color="#351709"/>
+      <stop offset="100%" stop-color="#301406"/>
+    </linearGradient>
+    <linearGradient id="fernwand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#e5e2dc"/>
+      <stop offset="100%" stop-color="#d5c3bc"/>
+    </linearGradient>
+    <linearGradient id="lichteinfall" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%"   stop-color="#ffdbcc" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#ffdbcc" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Die Arkade: dunkle Masse, aus der die Bogenöffnungen ausgespart werden -->
+    <mask id="bogenmaske">
+      <rect width="1600" height="440" fill="#fff"/>
+      <g fill="#000">
+        <path d="M52 440 L52 196 A103 103 0 0 1 258 196 L258 440 Z"/>
+        <path d="M310 440 L310 196 A103 103 0 0 1 516 196 L516 440 Z"/>
+        <path d="M568 440 L568 196 A103 103 0 0 1 774 196 L774 440 Z"/>
+        <path d="M826 440 L826 196 A103 103 0 0 1 1032 196 L1032 440 Z"/>
+        <path d="M1084 440 L1084 196 A103 103 0 0 1 1290 196 L1290 440 Z"/>
+        <path d="M1342 440 L1342 196 A103 103 0 0 1 1548 196 L1548 440 Z"/>
+      </g>
+    </mask>
+  </defs>
+
+  <!-- 1. Der Innenhof, durch die Bögen sichtbar -->
+  <rect width="1600" height="440" fill="url(#hof)"/>
+
+  <!-- 2. Gegenüberliegender Flügel mit Glockenturm -->
+  <g>
+    <rect x="0" y="250" width="1600" height="190" fill="url(#fernwand)"/>
+    <rect x="0" y="244" width="1600" height="8" fill="#83746e" opacity="0.5"/>
+    <!-- Turm -->
+    <rect x="1140" y="96" width="104" height="154" fill="#e5e2dc"/>
+    <path d="M1128 96 L1192 30 L1256 96 Z" fill="#d5c3bc"/>
+    <path d="M1180 126 a12 12 0 0 1 24 0 v34 h-24 Z" fill="#83746e" opacity="0.7"/>
+    <!-- Rundbogenfenster im Fernflügel -->
+    <g fill="#83746e" opacity="0.42">
+      <path d="M232 316 a20 20 0 0 1 40 0 v54 h-40 Z"/>
+      <path d="M472 316 a20 20 0 0 1 40 0 v54 h-40 Z"/>
+      <path d="M712 316 a20 20 0 0 1 40 0 v54 h-40 Z"/>
+      <path d="M952 316 a20 20 0 0 1 40 0 v54 h-40 Z"/>
+      <path d="M1392 316 a20 20 0 0 1 40 0 v54 h-40 Z"/>
+    </g>
+    <!-- Kreuzgarten: die niedrige Hecke im Hof. Olivton aus dem Palettensatz. -->
+    <rect x="0" y="366" width="1600" height="30" fill="#c4c9b1"/>
+    <g fill="#e0e5cc">
+      <circle cx="60" cy="366" r="17"/><circle cx="150" cy="366" r="15"/><circle cx="240" cy="366" r="18"/>
+      <circle cx="330" cy="366" r="15"/><circle cx="420" cy="366" r="17"/><circle cx="510" cy="366" r="16"/>
+      <circle cx="600" cy="366" r="18"/><circle cx="690" cy="366" r="15"/><circle cx="780" cy="366" r="17"/>
+      <circle cx="870" cy="366" r="16"/><circle cx="960" cy="366" r="18"/><circle cx="1050" cy="366" r="15"/>
+      <circle cx="1140" cy="366" r="17"/><circle cx="1230" cy="366" r="16"/><circle cx="1320" cy="366" r="18"/>
+      <circle cx="1410" cy="366" r="15"/><circle cx="1500" cy="366" r="17"/><circle cx="1580" cy="366" r="16"/>
+    </g>
+    <!-- Zypresse als Blickpunkt in der Hofmitte -->
+    <path d="M792 234 q22 46 22 88 q0 30 -22 30 q-22 0 -22 -30 q0 -42 22 -88 Z" fill="#c4c9b1"/>
+
+    <!-- Hofboden -->
+    <rect x="0" y="392" width="1600" height="48" fill="#d5c3bc"/>
+    <rect x="0" y="392" width="1600" height="3" fill="#83746e" opacity="0.3"/>
+  </g>
+
+  <!-- 3. Die Arkade im Vordergrund -->
+  <g mask="url(#bogenmaske)">
+    <rect width="1600" height="440" fill="url(#mauer)"/>
+    <!-- Quaderlagen im Mauerwerk -->
+    <g stroke="#c3927d" stroke-width="1.5" opacity="0.16">
+      <path d="M0 40 H1600 M0 82 H1600 M0 124 H1600 M0 166 H1600"/>
+      <path d="M80 0 v40 M240 0 v40 M400 0 v40 M560 0 v40 M720 0 v40 M880 0 v40 M1040 0 v40 M1200 0 v40 M1360 0 v40 M1520 0 v40"/>
+      <path d="M160 40 v42 M320 40 v42 M480 40 v42 M640 40 v42 M800 40 v42 M960 40 v42 M1120 40 v42 M1280 40 v42 M1440 40 v42"/>
+      <path d="M80 82 v42 M240 82 v42 M400 82 v42 M560 82 v42 M720 82 v42 M880 82 v42 M1040 82 v42 M1200 82 v42 M1360 82 v42 M1520 82 v42"/>
+    </g>
+    <!-- Kämpfergesims, auf dem die Bögen aufsetzen -->
+    <rect x="0" y="182" width="1600" height="14" fill="#c3927d" opacity="0.28"/>
+    <!-- Licht, das vom Hof auf die Säulen fällt -->
+    <rect x="0" y="196" width="1600" height="244" fill="url(#lichteinfall)"/>
+  </g>
+
+  <!-- 4. Boden des Kreuzgangs, im Schatten -->
+  <rect x="0" y="418" width="1600" height="22" fill="#301406" opacity="0.55"/>
+</svg>

@@ -49,38 +49,132 @@ body::before {
 }
 
 /* ==========================================================================
-   Kopfzeile
+   Kopfzeile und Hauptmenü
    ========================================================================== */
 
 .kopf {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
-  padding-bottom: var(--space-4);
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
   border-bottom: var(--border-hairline);
 }
 
-.logo {
-  flex: 0 0 auto;
-  width: 72px;
-  height: 72px;
-  color: var(--secondary);
+.marke {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: inherit;
+  text-decoration: none;
 }
 
-.logo img,
-.logo svg { display: block; width: 100%; height: 100%; }
+.logo { flex: 0 0 auto; width: 56px; height: 56px; }
+.logo img, .logo svg { display: block; width: 100%; height: 100%; }
 
-.wortmarke { margin: 0; color: var(--primary); }
+.wortmarke { display: block; margin: 0; color: var(--primary); }
+.kopf-devise { display: block; margin-top: 2px; color: var(--on-surface-variant); }
 
-.kopf-devise {
-  margin: var(--space-1) 0 0;
+.hauptmenue { display: flex; gap: var(--space-1); }
+
+.menuepunkt {
+  padding: var(--space-2) var(--space-2);
+  color: var(--on-surface-variant);
+  text-decoration: none;
+  border-radius: var(--rounded);
+  /* Platzhalter in der Farbe des Untergrunds, damit die Zeile beim Wechsel
+     nicht springt. */
+  border-bottom: 2px solid transparent;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.menuepunkt:hover { color: var(--on-surface); background: var(--surface-container); }
+
+.menuepunkt.aktiv {
+  color: var(--primary);
+  border-bottom-color: var(--secondary);
+  border-radius: var(--rounded) var(--rounded) 0 0;
+}
+
+.menuepunkt:focus-visible { outline: 2px solid var(--secondary); outline-offset: 2px; }
+
+/* ==========================================================================
+   Banner — der Blick aus dem Kreuzgang
+   ========================================================================== */
+
+.banner {
+  position: relative;
+  margin-top: var(--space-4);
+  overflow: hidden;
+  border: var(--border-hairline);
+  border-radius: var(--rounded-lg);
+  background: var(--surface-container-low);
+}
+
+.banner img {
+  display: block;
+  width: 100%;
+  height: clamp(200px, 22vw, 280px);
+  object-fit: cover;
+  /* Rechts anschneiden: links liegt die Textfläche darüber, rechts sollen
+     die Bögen offen bleiben. */
+  object-position: right bottom;
+}
+
+/* Eine eigene Fläche statt eines Verlaufs über das ganze Bild. Ein Verlauf
+   bleichte die Arkade aus, statt den Text abzusetzen. */
+.banner-text {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: min(54%, 34rem);
+  padding: var(--space-4);
+  background: var(--surface-container-lowest);
+}
+
+/* Weicher Übergang von der Textfläche ins Bild, damit die Kante nicht
+   abgeschnitten wirkt. */
+.banner-text::after {
+  content: '';
+  position: absolute;
+  inset: 0 calc(var(--space-6) * -1) 0 auto;
+  width: var(--space-6);
+  background: linear-gradient(
+    to right,
+    var(--surface-container-lowest),
+    color-mix(in srgb, var(--surface-container-lowest) 0%, transparent)
+  );
+}
+
+.banner-titel { margin: 0; color: var(--primary); }
+
+.banner-devise {
+  max-width: 44ch;
+  margin: var(--space-2) 0 0;
   color: var(--on-surface-variant);
 }
 
-.einleitung {
-  max-width: 62ch;
-  margin: var(--space-4) 0 0;
-  color: var(--on-surface-variant);
+@media (max-width: 40rem) {
+  .kopf { justify-content: flex-start; }
+  .hauptmenue { width: 100%; }
+  .menuepunkt { flex: 1; text-align: center; }
+
+  /* Auf schmalen Schirmen steht der Text unter dem Bild: nebeneinander
+     bliebe von der Arkade nichts Erkennbares übrig. */
+  .banner { display: flex; flex-direction: column; }
+  .banner img { height: 150px; object-position: center bottom; }
+
+  .banner-text {
+    position: static;
+    width: auto;
+    padding: var(--space-3) var(--space-2);
+    border-top: var(--border-hairline);
+  }
+
+  .banner-text::after { content: none; }
 }
 
 /* ==========================================================================
@@ -717,7 +811,16 @@ a:hover { color: var(--on-secondary-container); }
    Bierglossar
    ========================================================================== */
 
-.glossar-einleitung { margin-top: 0; }
+.glossar-einleitung {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--on-surface-variant);
+}
+
+/* Nach dem Banner braucht der erste Abschnitt einer Sicht keinen zweiten
+   Trennstrich obendrauf. */
+.abschnitt-erste { margin-top: var(--space-6); }
+.abschnitt-erste > .glossar-einleitung { margin-bottom: var(--space-3); }
 
 .familienwahl {
   display: flex;
@@ -826,4 +929,14 @@ a:hover { color: var(--on-secondary-container); }
   .sorte { grid-template-columns: 1fr; }
   .sorte-glas { justify-self: start; }
   .sorten { grid-template-columns: 1fr; }
+}
+
+kbd {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  padding: 2px 5px;
+  color: var(--on-surface);
+  background: var(--surface-container-high);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--rounded-sm);
 }

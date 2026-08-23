@@ -4,6 +4,7 @@ import { erweitertLesen, etikettLesen, EtikettFehler } from './etikett';
 import type { Bereich, Erweitert, Etikett, Etikettelement } from './schema';
 import { FAMILIEN, SORTEN, type Biersorte, type Familie } from './glossar';
 import { glasZeichnen } from './glas';
+import { ausEreignis, ausZwischenablage, ZwischenablageFehler } from './zwischenablage';
 
 const SPEICHER_SCHLUESSEL = 'bierexpert.apiSchluessel';
 
@@ -158,11 +159,36 @@ ablage.addEventListener('drop', (e) => {
   if (datei) void bildAnnehmen(datei);
 });
 
+el<HTMLButtonElement>('einfuegen').addEventListener('click', async () => {
+  try {
+    await bildAnnehmen(await ausZwischenablage());
+  } catch (fehler) {
+    zeigeFehler(
+      fehler instanceof ZwischenablageFehler
+        ? fehler.message
+        : 'Aus der Zwischenablage ließ sich kein Bild lesen.',
+    );
+  }
+});
+
 document.addEventListener('paste', (e) => {
-  const datei = Array.from(e.clipboardData?.items ?? [])
-    .find((eintrag) => eintrag.type.startsWith('image/'))
-    ?.getAsFile();
-  if (datei) void bildAnnehmen(datei);
+  void (async () => {
+    const datei = await ausEreignis(e);
+    if (datei) {
+      e.preventDefault();
+      await bildAnnehmen(datei);
+      return;
+    }
+    // Nur melden, wenn tatsächlich etwas in der Zwischenablage lag — ein
+    // leeres Strg+V soll nicht in einer Fehlermeldung enden.
+    if (e.clipboardData?.types.length) {
+      zeigeFehler(
+        'In der Zwischenablage liegt kein Bild.',
+        'Kopiere das Bild selbst, nicht nur den Link darauf. Aus einer Webseite ' +
+          'gelingt das meist mit Rechtsklick auf das Bild und „Bild kopieren".',
+      );
+    }
+  })();
 });
 
 /* ----------------------------------------------------------- Auswerten */
@@ -922,3 +948,58 @@ function familienwahlBauen(): void {
 
 familienwahlBauen();
 glossarZeichnen();
+
+/* ==========================================================================
+   Sichten — Etikett lesen und Bierglossar
+   ==========================================================================
+   Zwei Sichten auf einer Seite statt zweier Dokumente: es gibt keinen Server,
+   der eine zweite Adresse ausliefern könnte. Der Hash hält die Sicht dennoch
+   verlinkbar und lässt den Zurück-Knopf funktionieren.
+   ========================================================================== */
+
+const SICHTEN = {
+  lesen: {
+    titel: 'Das Etikett lesen',
+    devise: 'Fotografier das Etikett — und erfahre, was jedes einzelne Element darauf bedeutet.',
+  },
+  glossar: {
+    titel: 'Bierglossar',
+    devise: 'Die Sorten und worin sie sich unterscheiden — von Pils bis Lambic.',
+  },
+} as const;
+
+type SichtName = keyof typeof SICHTEN;
+
+const bannerTitel = el<HTMLHeadingElement>('banner-titel');
+const bannerDevise = el<HTMLParagraphElement>('banner-devise');
+
+function istSicht(wert: string): wert is SichtName {
+  return wert in SICHTEN;
+}
+
+function sichtZeigen(name: SichtName, springen = false): void {
+  for (const knoten of document.querySelectorAll<HTMLElement>('.sicht')) {
+    knoten.hidden = knoten.id !== `sicht-${name}`;
+  }
+  for (const punkt of document.querySelectorAll<HTMLAnchorElement>('.menuepunkt')) {
+    const aktiv = punkt.dataset['sicht'] === name;
+    punkt.classList.toggle('aktiv', aktiv);
+    // aria-current sagt Screenreadern, welche Sicht gerade offen ist.
+    if (aktiv) punkt.setAttribute('aria-current', 'page');
+    else punkt.removeAttribute('aria-current');
+  }
+
+  bannerTitel.textContent = SICHTEN[name].titel;
+  bannerDevise.textContent = SICHTEN[name].devise;
+  document.title = name === 'lesen' ? 'Bier Expert' : `${SICHTEN[name].titel} · Bier Expert`;
+
+  if (springen) window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function ausHash(): SichtName {
+  const wert = window.location.hash.replace('#', '');
+  return istSicht(wert) ? wert : 'lesen';
+}
+
+window.addEventListener('hashchange', () => sichtZeigen(ausHash(), true));
+sichtZeigen(ausHash());

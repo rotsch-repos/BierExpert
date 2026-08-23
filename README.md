@@ -34,8 +34,12 @@ gewusste Elemente werden offen als solche benannt.
 
 ## Wie es funktioniert
 
-1. Bild ablegen (Klick, Drag & Drop, `Strg+V`) oder auf dem Handy per
-   **Foto aufnehmen** direkt die Kamera öffnen.
+1. Bild hineingeben — auf vier Wegen:
+   - Klicken und Datei auswählen
+   - Drag & Drop auf die Ablagefläche
+   - **`Strg+V`** direkt auf der Seite
+   - Schaltfläche **Aus Zwischenablage**
+   Auf dem Handy öffnet **Foto aufnehmen** direkt die Kamera.
 2. Der Browser skaliert auf max. 1568 px Kantenlänge herunter und schickt das
    Bild an die Anthropic Messages API (`claude-opus-5`, Vision).
 3. Die Antwort kommt als strukturiertes JSON zurück — per `output_config.format`
@@ -60,6 +64,44 @@ des Bildes werden hineingeklemmt, und ein Bereich, der danach zu klein ist,
 praktisch das ganze Bild umfasst oder keine gültigen Zahlen enthält, führt zu
 **keiner** Markierung — eine Markierung an der falschen Stelle wäre schlechter
 als gar keine. Das Foto wird in dem Fall abgeblendet dargestellt.
+
+### Einfügen aus der Zwischenablage
+
+Kein Umweg über Speichern und Hochladen. `src/zwischenablage.ts` deckt beide
+Wege ab, weil die Zwischenablage je nach Herkunft etwas anderes enthält:
+
+- Die **Schaltfläche** fragt `navigator.clipboard.read()` ab. Braucht eine
+  Nutzergeste, teils eine Freigabe, und funktioniert nur über HTTPS oder auf
+  localhost — beides wird abgefangen und erklärt.
+- **`Strg+V`** wertet das `paste`-Ereignis aus und braucht keine Freigabe.
+
+Beide Wege suchen in dieser Reihenfolge: erst nach einer echten Bilddatei, dann
+im mitkopierten HTML nach einem eingebetteten `data:`-Bild (so landet eine Kopie
+aus einer Webseite doch noch als Bild), zuletzt nach einer Adresse. Eine
+`data:`-Adresse wird eingelöst; bei einer `http(s)`-Adresse wird es versucht,
+scheitert aber meist an der Ursprungsprüfung des fremden Servers — ohne Server
+auf unserer Seite ist das nicht zu umgehen. Dann sagt die Meldung, dass man das
+Bild selbst kopieren muss, nicht den Link darauf.
+
+## Aufbau der Seite
+
+Zwei Sichten, über das Hauptmenü in der Kopfzeile erreichbar:
+
+| Menüpunkt         | Adresse    | Inhalt                              |
+| ----------------- | ---------- | ----------------------------------- |
+| **Etikett lesen** | `#lesen`   | Foto hineingeben und auswerten      |
+| **Bierglossar**   | `#glossar` | Die Sorten und ihre Unterschiede    |
+
+Beides liegt in einem Dokument — es gibt keinen Server, der eine zweite Adresse
+ausliefern könnte. Der Hash hält die Sicht dennoch verlinkbar, lässt den
+Zurück-Knopf funktionieren und setzt den Seitentitel passend.
+
+Das Kopfbild (`public/klostermauer.svg`) zeigt den Blick aus einem Kreuzgang in
+den Innenhof: dunkles Mauerwerk mit Rundbögen, dahinter Fernflügel, Glockenturm
+und Kreuzgarten. Gezeichnet statt fotografiert, aus denselben Gründen wie beim
+Glossar, und ausschließlich in Palettenfarben. Der Titel steht auf einer eigenen
+Fläche statt auf einem Verlauf über dem Bild — ein Verlauf bleichte die Arkade
+aus, statt den Text abzusetzen.
 
 ## Bierglossar
 
