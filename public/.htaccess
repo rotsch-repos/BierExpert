@@ -40,26 +40,26 @@
   AddType font/woff2 .woff2
 </IfModule>
 
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-
-  # Der Prüfpfad der Zertifizierungsstelle darf NIE umgeleitet werden.
-  # Let's Encrypt weist die Verfügungsgewalt über die Domain über einfaches
-  # http nach. Leitet man das auf https um, scheitert die Prüfung, solange
-  # es kein Zertifikat gibt — und es gibt keines, solange die Prüfung
-  # scheitert. Diese Zeile bricht die Sackgasse auf.
-  RewriteRule ^\.well-known/ - [L]
-
-  # Auf HTTPS umleiten. Die Zwischenablage-Schaltfläche verlangt einen
-  # sicheren Kontext — über http bliebe sie ohne Funktion.
-  RewriteCond %{HTTPS} !=on
-  RewriteCond %{HTTP:X-Forwarded-Proto} !https
-  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-
-  # Die Seite wechselt ihre Sichten über den Hash, den der Server nie zu
-  # sehen bekommt. Es braucht daher keine Umschreibung auf index.html —
-  # jede echte Anfrage zielt auf eine Datei, die es gibt.
-</IfModule>
+# Bewusst KEINE Umleitung auf HTTPS an dieser Stelle.
+#
+# Sie gehört zur Einrichtung beim Anbieter, nicht in die Anwendung: Nur der
+# Anbieter weiß, ob für die Domain bereits ein Zertifikat vorliegt. Eine
+# Umleitung aus dieser Datei macht die Seite unerreichbar, solange das
+# Zertifikat noch aussteht — genau das war hier der Fall.
+#
+# Sobald das Zertifikat ausgestellt ist: im Hostpoint-Panel bei der Website
+# die HTTPS-Erzwingung einschalten. Dann greift sie zum richtigen Zeitpunkt
+# und kann nicht in eine Sackgasse laufen.
+#
+# Bis dahin: Die Seite läuft über http. Die Schaltfläche "Aus Zwischenablage"
+# bleibt dabei ohne Funktion, weil navigator.clipboard einen sicheren Kontext
+# verlangt; sie sagt das auch. Einfügen mit Strg+V funktioniert weiterhin,
+# das braucht keinen sicheren Kontext.
+#
+# Der Vollständigkeit halber, falls die Umleitung doch hierher soll: Der
+# Prüfpfad der Zertifizierungsstelle muss ausgenommen bleiben
+# (RewriteRule ^\.well-known/ - [L]), sonst kann sie den Nachweis über
+# einfaches http nicht führen.
 
 # Verzeichnisinhalte nicht auflisten.
 Options -Indexes

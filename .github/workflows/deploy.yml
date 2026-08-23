@@ -115,15 +115,36 @@ jobs:
 
           # Ohne -f: ein Fehlerstatus soll als Zahl zurückkommen statt als
           # Abbruch. Die Zahl ist hier die eigentliche Auskunft.
+          abrufen() {
+            curl -sS -L -o /tmp/seite.html -w '%{http_code}' "$1" 2>/tmp/curl.err || echo 000
+          }
+
           for versuch in 1 2 3; do
-            status=$(curl -sS -L -o /tmp/seite.html -w '%{http_code}' "${{ vars.DEPLOY_URL }}" || echo 000)
+            status=$(abrufen "${{ vars.DEPLOY_URL }}")
             [ "$status" = "200" ] && break
             echo "Versuch $versuch: HTTP $status — nochmal in 5 s"
             sleep 5
           done
 
+          # Kommt über https nichts zurück, kann es am Zertifikat liegen und
+          # nicht an der Auslieferung. Ein Blick über http trennt die beiden
+          # Fälle — sonst steht hier nur "geht nicht", ohne zu sagen, woran.
           if [ "$status" != "200" ]; then
-            echo "::error title=Ausgeliefert, aber nicht erreichbar::HTTP $status. Die Dateien liegen auf dem Server — das Deploy selbst ist durchgelaufen. Was hier fehlt, gehört zur Einrichtung beim Anbieter: Ist die Website aktiv geschaltet, zeigt die DNS-Auflösung hierher, und ist das Zertifikat ausgestellt? Solange das Zertifikat aussteht, ist ein Fehlschlag an dieser Stelle zu erwarten; wer währenddessen grüne Läufe möchte, leert die Variable DEPLOY_URL."
+            klartext="${{ vars.DEPLOY_URL }}"
+            case "$klartext" in
+              https://*)
+                echo "Über https kein Erfolg. Zum Vergleich dasselbe über http:"
+                unsicher="http://${klartext#https://}"
+                status_http=$(abrufen "$unsicher")
+                echo "  $unsicher → HTTP $status_http"
+                if [ "$status_http" = "200" ] && grep -q 'Bier Expert' /tmp/seite.html; then
+                  echo "::error title=Ausgeliefert und erreichbar, aber ohne Zertifikat::Über http antwortet die richtige Seite, über https nicht (HTTP $status). Die Auslieferung ist also in Ordnung; es fehlt das TLS-Zertifikat für die Domain. Sobald es ausgestellt ist, im Panel des Anbieters die HTTPS-Erzwingung einschalten."
+                  exit 1
+                fi
+                ;;
+            esac
+            echo "Meldung des Abrufs:"; cat /tmp/curl.err 2>/dev/null || true
+            echo "::error title=Ausgeliefert, aber nicht erreichbar::HTTP $status. Die Dateien liegen auf dem Server, das Deploy selbst ist durchgelaufen. Was fehlt, gehört zur Einrichtung beim Anbieter: Ist die Website aktiv geschaltet, zeigt die DNS-Auflösung dorthin, und ist das Zertifikat ausgestellt? Wer währenddessen grüne Läufe möchte, leert die Variable DEPLOY_URL."
             exit 1
           fi
 
