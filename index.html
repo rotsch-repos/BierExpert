@@ -4,106 +4,108 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bier Expert</title>
+  <meta name="description" content="Foto vom Bieretikett aufnehmen und erfahren, was jedes einzelne Element darauf bedeutet.">
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Hanken+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<div class="kerzenschein" aria-hidden="true"></div>
+<div class="huelle">
 
-<div class="pergament">
-
-  <header class="scriptorium">
-    <svg class="bogen" viewBox="0 0 200 170" aria-hidden="true">
-      <path d="M 30 170 L 30 100 A 92.9 92.9 0 0 1 100.0 10 A 92.9 92.9 0 0 1 170 100 L 170 170" fill="none" stroke="currentColor" stroke-width="2.5"/>
-      <path d="M 42 170 L 42 100 A 76.2 76.2 0 0 1 100.0 26 A 76.2 76.2 0 0 1 158 100 L 158 170" fill="none" stroke="currentColor" stroke-width="1" opacity="0.55"/>
-    </svg>
-    <p class="kreuz">&#10013;</p>
-    <h1>Bier Expert</h1>
-    <p class="devise">Chronica Cerevisiae</p>
-    <p class="untertitel">Die Chronik der Braukunst &mdash; lege ein Bildnis vor,<br>und die Geschichte des Gebr&auml;us wird dir kundgetan</p>
-    <p class="fleuron" aria-hidden="true">&#10087;</p>
+  <header class="kopf">
+    <span class="logo"><img src="/logo.svg" alt="" width="72" height="72"></span>
+    <div>
+      <h1 class="wortmarke display-lg">Bier Expert</h1>
+      <p class="kopf-devise label-caps">Etikettenkunde</p>
+    </div>
   </header>
 
-  <main>
+  <p class="einleitung body-lg">
+    Fotografier das Etikett &mdash; und erfahre, was jedes einzelne Element darauf
+    bedeutet. Wappen, Tiere, Kronen, Jahreszahlen: fast nichts davon ist Dekoration.
+    Danach hast du in der Runde etwas zu erz&auml;hlen.
+  </p>
 
-    <!-- ============ Schritt I: Bildnis darbringen ============ -->
-    <section class="kapitel" aria-labelledby="h-upload">
-      <h2 id="h-upload"><span class="ziffer">I</span> Das Bildnis darbringen</h2>
+  <!-- ================= I. Foto ================= -->
+  <section class="abschnitt" aria-labelledby="h-foto">
+    <div class="abschnitt-kopf">
+      <span class="abschnitt-nr label-caps">01</span>
+      <h2 id="h-foto" class="abschnitt-titel headline-md">Das Etikett fotografieren</h2>
+    </div>
 
-      <div class="ablage" id="ablage" tabindex="0" role="button"
-           aria-describedby="ablage-hinweis">
-        <svg class="ablage-bogen" viewBox="0 0 200 260" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M12 258 L12 108 Q12 14 100 6 Q188 14 188 108 L188 258"
-                fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="7 6"/>
+    <div class="ablage" id="ablage" tabindex="0" role="button" aria-describedby="ablage-hinweis">
+      <div class="ablage-inhalt" id="ablage-inhalt">
+        <!-- Engraving-Icon: d&uuml;nner Strich, nie gef&uuml;llt -->
+        <svg class="strichbild" viewBox="0 0 48 48" aria-hidden="true">
+          <path d="M20 4h8v7l4 6v27a2 2 0 0 1-2 2H18a2 2 0 0 1-2-2V17l4-6V4Z"/>
+          <path d="M16 22h16"/>
+          <rect x="18" y="26" width="12" height="13" rx="1"/>
+          <path d="M21 31h6M21 35h4"/>
         </svg>
-        <div class="ablage-inhalt">
-          <p class="ablage-symbol" aria-hidden="true">&#127866;</p>
-          <p class="ablage-ruf">Bierflasche hierher ziehen</p>
-          <p id="ablage-hinweis" class="ablage-klein">
-            oder klicken zum Ausw&auml;hlen &middot; auch Einf&uuml;gen mit Strg+V<br>
-            <span class="zart">JPEG, PNG, WebP oder GIF &middot; bis 20 MB</span>
-          </p>
-        </div>
-        <img id="vorschau" class="vorschau" alt="Vorschau der hochgeladenen Bierflasche" hidden>
+        <p class="ablage-ruf headline-sm">Bild hierher ziehen</p>
+        <p id="ablage-hinweis" class="ablage-klein body-md">
+          oder klicken zum Ausw&auml;hlen &middot; auch Einf&uuml;gen mit Strg+V
+          <span class="ablage-formate mono-data">JPEG, PNG, WebP oder GIF &middot; bis 20 MB</span>
+        </p>
       </div>
+      <img id="vorschau" class="vorschau" alt="Vorschau des hochgeladenen Etiketts" hidden>
+    </div>
 
-      <input type="file" id="datei" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+    <input type="file" id="datei" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+    <input type="file" id="kamera" accept="image/*" capture="environment" hidden>
 
-      <p class="dateiname" id="dateiname" hidden></p>
+    <p class="dateizeile mono-data" id="dateizeile" hidden></p>
 
-      <div class="tastenreihe">
-        <button type="button" id="befragen" class="taste taste-gold" disabled>
-          Die Chronik befragen
-        </button>
-        <button type="button" id="verwerfen" class="taste taste-schlicht" hidden>
-          Bildnis verwerfen
-        </button>
-      </div>
-    </section>
+    <div class="tastenreihe">
+      <button type="button" id="lesen" class="taste taste-primaer" disabled>Etikett auswerten</button>
+      <button type="button" id="fotografieren" class="taste taste-sekundaer">Foto aufnehmen</button>
+      <button type="button" id="verwerfen" class="taste taste-sekundaer" hidden>Bild verwerfen</button>
+    </div>
+  </section>
 
-    <!-- ============ Schritt II: Die Chronik ============ -->
-    <section class="kapitel" id="kapitel-chronik" aria-labelledby="h-chronik" hidden>
-      <h2 id="h-chronik"><span class="ziffer">II</span> Die Chronik des Gebr&auml;us</h2>
-      <div id="chronik" aria-live="polite"></div>
-    </section>
+  <!-- ================= II. Auswertung ================= -->
+  <section class="abschnitt" id="abschnitt-befund" aria-labelledby="h-befund" hidden>
+    <div class="abschnitt-kopf">
+      <span class="abschnitt-nr label-caps">02</span>
+      <h2 id="h-befund" class="abschnitt-titel headline-md">Das Etikett, St&uuml;ck f&uuml;r St&uuml;ck</h2>
+    </div>
+    <div id="befund" aria-live="polite"></div>
+  </section>
 
-  </main>
-
-  <!-- ============ Schlüsselkammer ============ -->
-  <aside class="kapitel schluesselkammer" aria-labelledby="h-schluessel">
+  <!-- ================= Schlüsselkammer ================= -->
+  <aside class="kammer">
     <details id="kammer">
-      <summary id="h-schluessel">&#128273; Schl&uuml;sselkammer &mdash; API-Schl&uuml;ssel hinterlegen</summary>
+      <summary class="label-caps">Schl&uuml;sselkammer &mdash; API-Schl&uuml;ssel hinterlegen</summary>
       <div class="kammer-inhalt">
-        <p class="warnung">
-          <strong>Achtung, werter Leser:</strong> Diese Seite ist reiner Frontend-Code ohne
-          Server. Dein Schl&uuml;ssel wird nur im <code>localStorage</code> dieses Browsers
-          abgelegt und direkt an die Anthropic-API gesendet. Das ist f&uuml;r den
-          <em>lokalen, pers&ouml;nlichen</em> Gebrauch gedacht. Ver&ouml;ffentliche diese Seite
-          niemals mit einem Schl&uuml;ssel &mdash; wer sie aufruft, kann ihn auslesen und auf
-          deine Rechnung nutzen.
+        <p class="warnung body-md">
+          <strong>Bitte lesen:</strong> Diese Seite ist reiner Frontend-Code ohne Server.
+          Dein Schl&uuml;ssel liegt nur im <code>localStorage</code> dieses Browsers und geht
+          direkt an die Anthropic-API. Das ist f&uuml;r den <em>lokalen, pers&ouml;nlichen</em>
+          Gebrauch gedacht. Ver&ouml;ffentliche diese Seite niemals mit einem Schl&uuml;ssel &mdash;
+          wer sie aufruft, kann ihn auslesen und auf deine Rechnung nutzen.
         </p>
         <label class="feld">
-          <span>Anthropic API-Schl&uuml;ssel</span>
+          <span class="label-caps">Anthropic API-Schl&uuml;ssel</span>
           <input type="password" id="schluessel" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
         </label>
         <div class="tastenreihe">
-          <button type="button" id="schluessel-speichern" class="taste taste-gold">Verwahren</button>
-          <button type="button" id="schluessel-loeschen" class="taste taste-schlicht">Aus dem Browser tilgen</button>
+          <button type="button" id="schluessel-speichern" class="taste taste-primaer">Verwahren</button>
+          <button type="button" id="schluessel-loeschen" class="taste taste-sekundaer">Tilgen</button>
         </div>
-        <p class="kammer-status" id="kammer-status" role="status"></p>
-        <p class="zart">
-          Einen Schl&uuml;ssel erh&auml;ltst du unter
+        <p class="kammer-status body-md" id="kammer-status" role="status"></p>
+        <p class="zart body-md">
+          Einen Schl&uuml;ssel gibt es unter
           <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.
         </p>
       </div>
     </details>
   </aside>
 
-  <footer>
-    <p class="fleuron" aria-hidden="true">&#10087;</p>
-    <p>&copy; 2026 Bier Expert &middot; <span class="zart">Angaben der Chronik k&ouml;nnen irren &mdash; pr&uuml;fe sie am Etikett</span></p>
+  <footer class="fuss">
+    <p class="body-md">&copy; 2026 Bier Expert</p>
+    <p class="zart mono-data">Deutungen k&ouml;nnen irren &mdash; im Zweifel bei der Brauerei nachfragen.</p>
   </footer>
 
 </div>

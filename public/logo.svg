@@ -1,0 +1,36 @@
+<!-- PLATZHALTER — bitte durch das echte Logo ersetzen.
+     Die Datei kam nur inline in der Unterhaltung an, nicht als Datei auf der
+     Platte. Diese Nachzeichnung dient nur dazu, das Layout beurteilen zu
+     können. Einfach überschreiben (SVG) oder logo.png danebenlegen und den
+     Pfad in index.html anpassen. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" fill="#8d4f00" role="img" aria-label="Bier Expert">
+  <!-- Kutschkasten -->
+  <path d="M44 62 L38 62 L46 40 L58 34 L58 28 L92 28 L92 34 L104 34 L104 42
+           L112 46 L118 56 L118 62 L108 62 L108 58 L52 58 L52 62 Z"/>
+  <!-- Fenster ausgespart -->
+  <rect x="56" y="36" width="11" height="17" fill="#fcf9f3"/>
+  <rect x="71" y="36" width="11" height="17" fill="#fcf9f3"/>
+  <rect x="86" y="36" width="11" height="17" fill="#fcf9f3"/>
+  <!-- Trittbrett -->
+  <path d="M62 62 h16 v5 h-4 v3 h-8 v-3 h-4 Z"/>
+  <!-- Deichsel zum Pferd -->
+  <path d="M116 58 L140 62 L140 65 L116 62 Z"/>
+  <!-- Hinterrad -->
+  <g><circle cx="52" cy="70" r="19" fill="none" stroke="#8d4f00" stroke-width="5"/>
+     <circle cx="52" cy="70" r="4"/>
+     <g stroke="#8d4f00" stroke-width="2.5">
+       <path d="M52 53 V87 M35 70 H69 M40 58 L64 82 M64 58 L40 82"/>
+     </g></g>
+  <!-- Vorderrad -->
+  <g><circle cx="112" cy="72" r="17" fill="none" stroke="#8d4f00" stroke-width="5"/>
+     <circle cx="112" cy="72" r="3.5"/>
+     <g stroke="#8d4f00" stroke-width="2.5">
+       <path d="M112 57 V87 M97 72 H127 M101 61 L123 83 M123 61 L101 83"/>
+     </g></g>
+  <!-- Pferd im Trab -->
+  <path d="M143 64 C143 56 149 50 158 49 L172 47 L176 38 L180 30 L186 26
+           L190 22 L193 26 L190 31 L192 36 L190 44 L186 50 L180 53 L176 58
+           L177 68 L179 76 L176 78 L172 68 L168 60 L160 60 L156 68 L157 78
+           L154 80 L150 70 L148 62 L145 70 L146 78 L143 80 L140 70 Z"/>
+  <path d="M186 26 L189 20 L191 26 Z"/>
+</svg>

@@ -1,7 +1,7 @@
 import './style.css';
 import { bildAufbereiten, BildFehler, type AufbereitetesBild } from './bild';
-import { chronikBefragen, ChronikFehler } from './chronik';
-import type { Chronik } from './schema';
+import { etikettLesen, EtikettFehler } from './etikett';
+import type { Etikett, Etikettelement } from './schema';
 
 const SPEICHER_SCHLUESSEL = 'bierexpert.apiSchluessel';
 
@@ -14,14 +14,16 @@ const el = <T extends HTMLElement>(id: string): T => {
 };
 
 const ablage = el<HTMLDivElement>('ablage');
+const ablageInhalt = el<HTMLDivElement>('ablage-inhalt');
 const dateiFeld = el<HTMLInputElement>('datei');
+const kameraFeld = el<HTMLInputElement>('kamera');
 const vorschau = el<HTMLImageElement>('vorschau');
-const ablageInhalt = ablage.querySelector<HTMLDivElement>('.ablage-inhalt')!;
-const dateiname = el<HTMLParagraphElement>('dateiname');
-const befragenTaste = el<HTMLButtonElement>('befragen');
+const dateizeile = el<HTMLParagraphElement>('dateizeile');
+const lesenTaste = el<HTMLButtonElement>('lesen');
+const fotoTaste = el<HTMLButtonElement>('fotografieren');
 const verwerfenTaste = el<HTMLButtonElement>('verwerfen');
-const kapitelChronik = el<HTMLElement>('kapitel-chronik');
-const chronikZiel = el<HTMLDivElement>('chronik');
+const abschnittBefund = el<HTMLElement>('abschnitt-befund');
+const befundZiel = el<HTMLDivElement>('befund');
 const kammer = el<HTMLDetailsElement>('kammer');
 const schluesselFeld = el<HTMLInputElement>('schluessel');
 const kammerStatus = el<HTMLParagraphElement>('kammer-status');
@@ -42,17 +44,9 @@ function schluesselLesen(): string {
   }
 }
 
-function kammerFuellen(): void {
-  const vorhanden = schluesselLesen();
-  if (vorhanden) {
-    schluesselFeld.value = vorhanden;
-    melden('Ein Schlüssel liegt verwahrt.', 'gut');
-  }
-}
-
 function melden(text: string, art: 'gut' | 'warn' | '' = ''): void {
   kammerStatus.textContent = text;
-  kammerStatus.className = `kammer-status ${art}`;
+  kammerStatus.className = `kammer-status body-md ${art}`;
 }
 
 el<HTMLButtonElement>('schluessel-speichern').addEventListener('click', () => {
@@ -76,7 +70,7 @@ el<HTMLButtonElement>('schluessel-loeschen').addEventListener('click', () => {
     /* nichts zu tilgen */
   }
   schluesselFeld.value = '';
-  melden('Der Schlüssel wurde getilgt.', '');
+  melden('Der Schlüssel wurde getilgt.');
 });
 
 /* ------------------------------------------------------------ Bild annehmen */
@@ -91,16 +85,16 @@ async function bildAnnehmen(datei: File): Promise<void> {
 
     const kb = Math.round((aktuellesBild.base64.length * 0.75) / 1024);
     const masse = aktuellesBild.breite ? ` · ${aktuellesBild.breite}×${aktuellesBild.hoehe} px` : '';
-    dateiname.textContent = `${datei.name}${masse} · ${kb} kB`;
-    dateiname.hidden = false;
+    dateizeile.textContent = `${datei.name}${masse} · ${kb} kB`;
+    dateizeile.hidden = false;
 
-    befragenTaste.disabled = false;
+    lesenTaste.disabled = false;
     verwerfenTaste.hidden = false;
   } catch (fehler) {
     aktuellesBild = null;
-    befragenTaste.disabled = true;
+    lesenTaste.disabled = true;
     zeigeFehler(
-      fehler instanceof BildFehler ? fehler.message : 'Das Bildnis konnte nicht gelesen werden.',
+      fehler instanceof BildFehler ? fehler.message : 'Das Bild konnte nicht gelesen werden.',
     );
   }
 }
@@ -110,12 +104,13 @@ function bildVerwerfen(): void {
   vorschau.hidden = true;
   vorschau.removeAttribute('src');
   ablageInhalt.hidden = false;
-  dateiname.hidden = true;
+  dateizeile.hidden = true;
   dateiFeld.value = '';
-  befragenTaste.disabled = true;
+  kameraFeld.value = '';
+  lesenTaste.disabled = true;
   verwerfenTaste.hidden = true;
-  kapitelChronik.hidden = true;
-  chronikZiel.replaceChildren();
+  abschnittBefund.hidden = true;
+  befundZiel.replaceChildren();
 }
 
 verwerfenTaste.addEventListener('click', bildVerwerfen);
@@ -131,10 +126,15 @@ ablage.addEventListener('keydown', (e) => {
   }
 });
 
-dateiFeld.addEventListener('change', () => {
-  const datei = dateiFeld.files?.[0];
-  if (datei) void bildAnnehmen(datei);
-});
+// Auf dem Handy öffnet capture="environment" direkt die Kamera.
+fotoTaste.addEventListener('click', () => kameraFeld.click());
+
+for (const feld of [dateiFeld, kameraFeld]) {
+  feld.addEventListener('change', () => {
+    const datei = feld.files?.[0];
+    if (datei) void bildAnnehmen(datei);
+  });
+}
 
 for (const art of ['dragenter', 'dragover'] as const) {
   ablage.addEventListener(art, (e) => {
@@ -160,68 +160,77 @@ document.addEventListener('paste', (e) => {
   if (datei) void bildAnnehmen(datei);
 });
 
-/* --------------------------------------------------------- Chronik befragen */
+/* ----------------------------------------------------------- Auswerten */
 
-befragenTaste.addEventListener('click', async () => {
+lesenTaste.addEventListener('click', async () => {
   if (!aktuellesBild || laeuft) return;
 
   const schluessel = schluesselFeld.value.trim() || schluesselLesen();
   if (!schluessel) {
     kammer.open = true;
-    melden('Ohne Schlüssel bleibt die Chronik verschlossen.', 'warn');
+    melden('Ohne Schlüssel geht es nicht weiter.', 'warn');
     kammer.scrollIntoView({ block: 'center' });
     schluesselFeld.focus();
     return;
   }
 
   laeuft = true;
-  befragenTaste.disabled = true;
-  befragenTaste.textContent = 'Der Chronist blättert …';
+  lesenTaste.disabled = true;
+  lesenTaste.textContent = 'Wird gelesen …';
   wartenZeigen();
 
   try {
-    const chronik = await chronikBefragen(schluessel, aktuellesBild);
-    chronikZeichnen(chronik);
+    befundZeichnen(await etikettLesen(schluessel, aktuellesBild));
   } catch (fehler) {
-    const f = fehler as ChronikFehler;
+    const f = fehler as EtikettFehler;
     zeigeFehler(f.message ?? 'Unbekannter Fehler', f.rat);
   } finally {
     laeuft = false;
-    befragenTaste.disabled = false;
-    befragenTaste.textContent = 'Die Chronik befragen';
+    lesenTaste.disabled = false;
+    lesenTaste.textContent = 'Etikett auswerten';
   }
 });
 
 /* ------------------------------------------------------------- Darstellung */
 
-function kapitelOeffnen(): HTMLDivElement {
-  kapitelChronik.hidden = false;
-  chronikZiel.replaceChildren();
-  return chronikZiel;
+function abschnittOeffnen(): HTMLDivElement {
+  abschnittBefund.hidden = false;
+  befundZiel.replaceChildren();
+  return befundZiel;
 }
 
 function wartenZeigen(): void {
-  const ziel = kapitelOeffnen();
+  const ziel = abschnittOeffnen();
   const block = document.createElement('div');
   block.className = 'warten';
-  block.innerHTML =
-    '<p class="warten-symbol" aria-hidden="true">&#127866;</p>' +
-    '<p>Der Chronist prüft das Bildnis und schlägt in den Annalen nach …</p>';
+
+  const mal = document.createElement('span');
+  mal.className = 'warten-mal';
+  mal.setAttribute('aria-hidden', 'true');
+
+  const text = document.createElement('p');
+  text.className = 'body-md';
+  text.style.margin = '0';
+  text.textContent = 'Das Etikett wird gelesen und in seine Elemente zerlegt …';
+
+  block.append(mal, text);
   ziel.append(block);
-  kapitelChronik.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  abschnittBefund.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function zeigeFehler(titel: string, rat?: string): void {
-  const ziel = kapitelOeffnen();
+  const ziel = abschnittOeffnen();
   const block = document.createElement('div');
   block.className = 'fehler';
 
   const kopf = document.createElement('strong');
+  kopf.className = 'body-lg';
   kopf.textContent = titel;
   block.append(kopf);
 
   if (rat) {
     const p = document.createElement('p');
+    p.className = 'body-md';
     p.textContent = rat;
     block.append(p);
   }
@@ -229,77 +238,140 @@ function zeigeFehler(titel: string, rat?: string): void {
   ziel.append(block);
 }
 
-/** Baut die Chronik auf. Durchgehend textContent — kein HTML aus der Modellantwort. */
-function chronikZeichnen(c: Chronik): void {
-  const ziel = kapitelOeffnen();
+/** Baut den Befund auf. Durchgehend textContent — kein HTML aus der Modellantwort. */
+function befundZeichnen(e: Etikett): void {
+  const ziel = abschnittOeffnen();
   const blatt = document.createElement('article');
   blatt.className = 'chronik-blatt';
 
-  if (!c.erkannt) {
+  if (!e.erkannt) {
     const kopf = document.createElement('h3');
-    kopf.className = 'chronik-titel';
-    kopf.textContent = 'Kein Bier in Sicht';
+    kopf.className = 'chronik-titel headline-md';
+    kopf.textContent = 'Kein Etikett erkannt';
     const p = document.createElement('p');
-    p.className = 'chronik-brauerei';
-    p.textContent = c.hinweis || 'Auf diesem Bildnis ist keine Bierflasche zu erkennen.';
+    p.className = 'body-lg';
+    p.textContent = e.hinweis || 'Auf diesem Bild ist kein Bieretikett zu erkennen.';
     blatt.append(kopf, p);
     ziel.append(blatt);
     return;
   }
 
-  const siegel = document.createElement('span');
-  siegel.className = `siegel siegel-${c.sicherheit}`;
-  siegel.textContent = `Zuordnung: ${c.sicherheit}`;
-  blatt.append(siegel);
+  /* --- Kopf: Serifentitel über Tonblock --- */
+  const kopf = document.createElement('div');
+  kopf.className = 'chronik-kopf';
 
   const titel = document.createElement('h3');
-  titel.className = 'chronik-titel';
-  titel.textContent = c.name;
-  blatt.append(titel);
+  titel.className = 'chronik-titel display-lg';
+  titel.textContent = e.name;
 
-  const brauerei = document.createElement('p');
-  brauerei.className = 'chronik-brauerei';
-  brauerei.textContent = [c.brauerei, c.ort, c.land]
+  const herkunft = document.createElement('p');
+  herkunft.className = 'chronik-herkunft body-lg';
+  herkunft.textContent = [e.brauerei, e.ort, e.land]
     .filter((s) => s && s.toLowerCase() !== 'unbekannt')
     .join(' · ');
-  blatt.append(brauerei);
+
+  kopf.append(titel, herkunft);
+
+  const abzeichen = document.createElement('span');
+  abzeichen.className = `abzeichen label-caps${e.sicherheit === 'niedrig' ? ' abzeichen-niedrig' : ''}`;
+  abzeichen.textContent = `Zuordnung ${e.sicherheit}`;
+
+  blatt.append(abzeichen, kopf);
 
   blatt.append(
     tafelBauen([
-      ['Gegründet', c.gegruendet],
-      ['Stil', c.stil],
-      ['Stammwürze', c.stammwuerze],
-      ['Alkohol', c.alkohol],
+      ['Gegründet', e.gegruendet],
+      ['Stil', e.stil],
+      ['Stammwürze', e.stammwuerze],
+      ['Alkohol', e.alkohol],
     ]),
   );
 
-  blatt.append(absatzBlock('Entstehungsgeschichte', c.entstehungsgeschichte, true));
-  blatt.append(absatzBlock('Kloster- und Brauhaustradition', c.klosterbezug, false));
+  /* --- Kern: die Elemente einzeln --- */
+  if (e.elemente.length) {
+    blatt.append(elementeBauen(e.elemente));
+  }
 
-  if (c.besonderheiten.length) {
+  blatt.append(textBlock('Farbwahl', e.farbwahl));
+  blatt.append(textBlock('Schriftbild', e.schriftbild));
+  blatt.append(textBlock('Geschichtlicher Hintergrund', e.hintergrund));
+
+  /* --- Der Zweck der Übung --- */
+  if (e.gespraechsstoff.length) {
     const abschnitt = document.createElement('section');
     abschnitt.className = 'chronik-abschnitt';
+
     const h = document.createElement('h4');
-    h.textContent = 'Merkwürdigkeiten';
+    h.className = 'label-caps';
+    h.textContent = 'Für die Runde';
+    abschnitt.append(h);
+
     const liste = document.createElement('ul');
-    liste.className = 'merkmale';
-    for (const punkt of c.besonderheiten) {
+    liste.className = 'merkmale body-lg';
+    for (const satz of e.gespraechsstoff) {
       const li = document.createElement('li');
-      li.textContent = punkt;
+      li.textContent = satz;
       liste.append(li);
     }
-    abschnitt.append(h, liste);
+    abschnitt.append(liste);
     blatt.append(abschnitt);
   }
 
-  if (c.hinweis.trim()) {
+  if (e.hinweis.trim()) {
     const hinweis = document.createElement('p');
-    hinweis.className = 'chronik-hinweis';
-    hinweis.textContent = `Anmerkung des Chronisten: ${c.hinweis}`;
+    hinweis.className = 'chronik-hinweis body-md';
+    hinweis.textContent = `Unsicher: ${e.hinweis}`;
     blatt.append(hinweis);
   }
 
   ziel.append(blatt);
+}
+
+function elementeBauen(elemente: readonly Etikettelement[]): HTMLElement {
+  const abschnitt = document.createElement('section');
+  abschnitt.className = 'chronik-abschnitt';
+
+  const h = document.createElement('h4');
+  h.className = 'label-caps';
+  h.textContent = `Die Elemente · ${elemente.length}`;
+  abschnitt.append(h);
+
+  const liste = document.createElement('ol');
+  liste.className = 'elemente';
+
+  elemente.forEach((element, i) => {
+    const li = document.createElement('li');
+    li.className = 'element';
+
+    const nr = document.createElement('span');
+    nr.className = 'element-nr mono-data';
+    nr.textContent = String(i + 1).padStart(2, '0');
+
+    const rumpf = document.createElement('div');
+
+    const name = document.createElement('h5');
+    name.className = 'element-name headline-sm';
+    name.textContent = element.bezeichnung;
+
+    const wo = document.createElement('p');
+    wo.className = 'element-wo label-caps';
+    wo.textContent = element.position;
+
+    const was = document.createElement('p');
+    was.className = 'body-md';
+    was.textContent = element.beschreibung;
+
+    const warum = document.createElement('p');
+    warum.className = 'element-bedeutung body-md';
+    warum.textContent = element.bedeutung;
+
+    rumpf.append(name, wo, was, warum);
+    li.append(nr, rumpf);
+    liste.append(li);
+  });
+
+  abschnitt.append(liste);
+  return abschnitt;
 }
 
 function tafelBauen(zeilen: ReadonlyArray<readonly [string, string]>): HTMLDListElement {
@@ -308,8 +380,10 @@ function tafelBauen(zeilen: ReadonlyArray<readonly [string, string]>): HTMLDList
   for (const [begriff, wert] of zeilen) {
     const zelle = document.createElement('div');
     const dt = document.createElement('dt');
+    dt.className = 'label-caps';
     dt.textContent = begriff;
     const dd = document.createElement('dd');
+    dd.className = 'mono-data';
     dd.textContent = wert || 'unbekannt';
     zelle.append(dt, dd);
     tafel.append(zelle);
@@ -317,25 +391,29 @@ function tafelBauen(zeilen: ReadonlyArray<readonly [string, string]>): HTMLDList
   return tafel;
 }
 
-function absatzBlock(ueberschrift: string, text: string, initiale: boolean): HTMLElement {
+function textBlock(ueberschrift: string, text: string): HTMLElement {
   const abschnitt = document.createElement('section');
   abschnitt.className = 'chronik-abschnitt';
 
   const h = document.createElement('h4');
+  h.className = 'label-caps';
   h.textContent = ueberschrift;
   abschnitt.append(h);
 
-  const absaetze = text.split(/\n{2,}/).filter((a) => a.trim());
-  absaetze.forEach((absatz, i) => {
+  for (const absatz of text.split(/\n{2,}/).filter((a) => a.trim())) {
     const p = document.createElement('p');
-    if (initiale && i === 0) p.className = 'initiale';
+    p.className = 'body-lg';
     p.textContent = absatz.trim();
     abschnitt.append(p);
-  });
+  }
 
   return abschnitt;
 }
 
 /* ------------------------------------------------------------------- Start */
 
-kammerFuellen();
+const vorhanden = schluesselLesen();
+if (vorhanden) {
+  schluesselFeld.value = vorhanden;
+  melden('Ein Schlüssel liegt verwahrt.', 'gut');
+}
