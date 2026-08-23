@@ -19,7 +19,6 @@
     "vite": "^7.0.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.120.0",
     "zod": "^4.4.3"
   },
   "engines": {

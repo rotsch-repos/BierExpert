@@ -1,26 +1,49 @@
 import { expect, test } from '@playwright/test';
-import { apiVortaeuschen, bisBefund, ERWEITERT, ETIKETT, schluesselHinterlegen } from './helfer';
+import { apiVortaeuschen, bisBefund, ETIKETT, seiteOeffnen } from './helfer';
 
 test.describe('Etikett auswerten', () => {
   test('teilt die Auswertung auf zwei Aufrufe auf', async ({ page }) => {
     const gesehen = await apiVortaeuschen(page);
-    await schluesselHinterlegen(page);
+    await seiteOeffnen(page);
     await bisBefund(page);
     await expect(page.locator('.reiterfeld .warten')).toHaveCount(0);
 
+    // Die Aufteilung bleibt: zwei Endpunkte, nicht einer. Sie hat ihren
+    // Grund inzwischen gewechselt — früher sprengte ein zusammengelegtes
+    // Schema die Grammatikgrenze der API, heute laufen die beiden Aufrufe
+    // nebeneinander, damit der Leser einmal wartet statt zweimal.
     expect(gesehen.map((g) => g.art).sort()).toEqual(['erweitert', 'etikett']);
 
     for (const aufruf of gesehen) {
-      expect(aufruf.gestreamt, 'Aufrufe laufen gestreamt').toBe(true);
-      // Die API weist ein Schema ab, dessen Grammatik zu groß wird. Beide
-      // Schemata müssen deutlich unter dem zusammengelegten bleiben.
-      expect(aufruf.schemafelder, `${aufruf.art}: Schema bleibt klein`).toBeLessThan(25);
+      expect(aufruf.methode, `${aufruf.art}: geht per POST`).toBe('POST');
+      expect(aufruf.hatBild, `${aufruf.art}: hat ein Bild dabei`).toBe(true);
+      expect(aufruf.medienTyp, `${aufruf.art}: nennt den Medientyp`).toMatch(/^image\//);
     }
+  });
+
+  test('weist die Auskunft als aus dem Gedächtnis aus', async ({ page }) => {
+    await apiVortaeuschen(page, { ausSpeicher: true });
+    await seiteOeffnen(page);
+    await bisBefund(page);
+
+    // Eine Zerlegung aus einer früheren Auswertung beschreibt dasselbe Bier,
+    // aber nicht dieses Foto. Wer das nicht liest, hält den älteren Stand
+    // für eine Aussage über die Flasche in seiner Hand.
+    await expect(page.locator('.abzeichen-speicher')).toHaveText('Aus dem Gedächtnis');
+  });
+
+  test('nennt keine Herkunft, wenn frisch gelesen wurde', async ({ page }) => {
+    await apiVortaeuschen(page);
+    await seiteOeffnen(page);
+    await bisBefund(page);
+
+    await expect(page.locator('.abzeichen-speicher')).toHaveCount(0);
+    await expect(page.locator('.abzeichen').first()).toContainText('Zuordnung');
   });
 
   test('zerlegt das Etikett in einzelne Elemente', async ({ page }) => {
     await apiVortaeuschen(page);
-    await schluesselHinterlegen(page);
+    await seiteOeffnen(page);
     await bisBefund(page);
 
     const elemente = page.locator('.reiterfeld:not([hidden]) .element');
@@ -33,7 +56,7 @@ test.describe('Etikett auswerten', () => {
 
   test('markiert jedes Element an der gelieferten Stelle im Foto', async ({ page }) => {
     await apiVortaeuschen(page);
-    await schluesselHinterlegen(page);
+    await seiteOeffnen(page);
     await bisBefund(page);
 
     const gemessen = await page.evaluate(() =>
@@ -72,30 +95,9 @@ test.describe('Etikett auswerten', () => {
     kaputt.elemente[1].bereich = { x: 0.5, y: 0.5, breite: 0, hoehe: 0 };      // Nullfläche
     kaputt.elemente[2].bereich = { x: 1.4, y: -0.3, breite: 0.4, hoehe: 0.2 }; // außerhalb
 
-    await page.route('https://fonts.googleapis.com/**', (r) =>
-      r.fulfill({ status: 200, contentType: 'text/css', body: '' }),
-    );
-    await page.route('**/v1/messages*', async (route) => {
-      const kopf = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' };
-      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: kopf });
-      const istErweitert = String(route.request().postDataJSON().system).includes('Bierkundler');
-      const daten = istErweitert ? ERWEITERT : kaputt;
-      const text = JSON.stringify(daten);
-      const ev = (a: string, d: unknown) => `event: ${a}\ndata: ${JSON.stringify(d)}\n\n`;
-      await route.fulfill({
-        status: 200,
-        headers: { ...kopf, 'content-type': 'text/event-stream' },
-        body:
-          ev('message_start', { type: 'message_start', message: { id: 'm', type: 'message', role: 'assistant', model: 'claude-opus-5', content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 0 } } }) +
-          ev('content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }) +
-          ev('content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } }) +
-          ev('content_block_stop', { type: 'content_block_stop', index: 0 }) +
-          ev('message_delta', { type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 1 } }) +
-          ev('message_stop', { type: 'message_stop' }),
-      });
-    });
+    await apiVortaeuschen(page, { etikett: kaputt });
 
-    await schluesselHinterlegen(page);
+    await seiteOeffnen(page);
     await bisBefund(page);
 
     // Drei unbrauchbare Bereiche, zwei gültige: eine falsch sitzende Markierung
@@ -110,7 +112,7 @@ test.describe('Reiter', () => {
 
   test('zeigt alle fünf Reiter und wechselt zwischen ihnen', async ({ page }) => {
     await apiVortaeuschen(page);
-    await schluesselHinterlegen(page);
+    await seiteOeffnen(page);
     await bisBefund(page);
     await expect(page.locator('.reiterfeld .warten')).toHaveCount(0);
 
@@ -128,7 +130,7 @@ test.describe('Reiter', () => {
 
   test('lässt sich mit der Tastatur bedienen', async ({ page }) => {
     await apiVortaeuschen(page);
-    await schluesselHinterlegen(page);
+    await seiteOeffnen(page);
     await bisBefund(page);
 
     await page.locator('.reitertaste').first().click();
@@ -148,7 +150,7 @@ test.describe('Reiter', () => {
 
   test('füllt die erweiterten Reiter mit ihren Inhalten', async ({ page }) => {
     await apiVortaeuschen(page);
-    await schluesselHinterlegen(page);
+    await seiteOeffnen(page);
     await bisBefund(page);
     await expect(page.locator('.reiterfeld .warten')).toHaveCount(0);
 
@@ -170,7 +172,7 @@ test.describe('Reiter', () => {
 
   test('zeigt einen Ladehinweis, solange der zweite Aufruf läuft', async ({ page }) => {
     await apiVortaeuschen(page, { erweitertVerzoegern: 2000 });
-    await schluesselHinterlegen(page);
+    await seiteOeffnen(page);
     await bisBefund(page);
 
     await page.locator('.reitertaste').nth(1).click();
@@ -180,7 +182,7 @@ test.describe('Reiter', () => {
 
   test('behält die Etikettzerlegung, wenn der zweite Aufruf scheitert', async ({ page }) => {
     await apiVortaeuschen(page, { erweitertFehler: 400 });
-    await schluesselHinterlegen(page);
+    await seiteOeffnen(page);
     await bisBefund(page);
 
     await expect(page.locator('.reiterfeld .fehler')).toHaveCount(4);

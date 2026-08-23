@@ -105,35 +105,6 @@
     </section>
   </div><!-- /sicht-glossar -->
 
-  <!-- ================= Schlüsselkammer ================= -->
-  <aside class="kammer">
-    <details id="kammer">
-      <summary class="label-caps">Schl&uuml;sselkammer &mdash; API-Schl&uuml;ssel hinterlegen</summary>
-      <div class="kammer-inhalt">
-        <p class="warnung body-md">
-          <strong>Bitte lesen:</strong> Diese Seite ist reiner Frontend-Code ohne Server.
-          Dein Schl&uuml;ssel liegt nur im <code>localStorage</code> dieses Browsers und geht
-          direkt an die Anthropic-API. Das ist f&uuml;r den <em>lokalen, pers&ouml;nlichen</em>
-          Gebrauch gedacht. Ver&ouml;ffentliche diese Seite niemals mit einem Schl&uuml;ssel &mdash;
-          wer sie aufruft, kann ihn auslesen und auf deine Rechnung nutzen.
-        </p>
-        <label class="feld">
-          <span class="label-caps">Anthropic API-Schl&uuml;ssel</span>
-          <input type="password" id="schluessel" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
-        </label>
-        <div class="tastenreihe">
-          <button type="button" id="schluessel-speichern" class="taste taste-primaer">Verwahren</button>
-          <button type="button" id="schluessel-loeschen" class="taste taste-sekundaer">Tilgen</button>
-        </div>
-        <p class="kammer-status body-md" id="kammer-status" role="status"></p>
-        <p class="zart body-md">
-          Einen Schl&uuml;ssel gibt es unter
-          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.
-        </p>
-      </div>
-    </details>
-  </aside>
-
   <footer class="fuss">
     <p class="body-md">&copy; 2026 Bier Expert</p>
     <p class="zart mono-data">Deutungen k&ouml;nnen irren &mdash; im Zweifel bei der Brauerei nachfragen.</p>

@@ -4,7 +4,9 @@ Fotografier ein Bieretikett — und erfahre, was jedes einzelne Element darauf
 bedeutet. Wappen, Tiere, Kronen, Jahreszahlen, Bänder: fast nichts davon ist
 Dekoration. Danach hast du in der Bierrunde etwas zu erzählen.
 
-Reiner Frontend-Code, keine Datenbank, kein Server.
+TypeScript im Browser, PHP auf dem Server, ein Sprachmodell auf eigener
+Hardware. Was einmal über ein Bier herausgefunden wurde, bleibt in einer
+MariaDB stehen — die Anwendung wird mit jedem Scan schneller.
 
 ## Was die Auswertung liefert
 
@@ -41,15 +43,52 @@ gewusste Elemente werden offen als solche benannt.
    - Schaltfläche **Aus Zwischenablage**
    Auf dem Handy öffnet **Foto aufnehmen** direkt die Kamera.
 2. Der Browser skaliert auf max. 1568 px Kantenlänge herunter und schickt das
-   Bild an die Anthropic Messages API (`claude-opus-5`, Vision).
-3. Die Antwort kommt als strukturiertes JSON zurück — per `output_config.format`
-   gegen ein Zod-Schema erzwungen — und wird gerendert.
+   Bild an die eigene API: `POST /api/etikett.php`.
+3. Das PHP-Backend fragt Ollama auf dem eigenen Rechner. Die Antwort kommt als
+   strukturiertes JSON zurück — Ollama übersetzt das mitgeschickte Schema in
+   eine Grammatik, die die Ausgabe erzwingt.
+4. Der Browser prüft die Antwort noch einmal gegen das Zod-Schema und rendert.
 
-Der Aufruf läuft **gestreamt** (`messages.stream()` statt `messages.parse()`).
-Das ist keine Stilfrage: Bei `max_tokens: 32000` lehnt das SDK einen
-nicht-gestreamten Aufruf ab, weil die daraus errechnete Zeitgrenze über den
-erlaubten zehn Minuten läge. `finalMessage()` läuft durch denselben Parser und
-liefert `parsed_output` genauso.
+Zwei Aufrufe laufen dabei nebeneinander: `etikett.php` für die Zerlegung,
+`erweitert.php` für die vier Reiter. Der Leser wartet damit einmal statt
+zweimal, und scheitert der zweite, steht die Zerlegung trotzdem.
+
+### Warum ein Server dazwischen
+
+Vorher rief der Browser die Anthropic-API direkt auf, mit dem Schlüssel im
+Seitenquelltext. Das ging, solange die Seite auf einem Rechner lief. Öffentlich
+ausgeliefert hätte jeder Besucher den Schlüssel auslesen können.
+
+Der Server löst drei Dinge auf einmal: Der Zugang zum Modell bleibt beim
+Server, das Modell läuft auf eigener Hardware statt gegen Rechnung, und
+dazwischen passt ein Zwischenspeicher.
+
+### Zwei Stufen statt einer
+
+Ein Etikett ändert sich über Jahre nicht. Was das Modell einmal darüber
+herausgefunden hat, gilt beim nächsten Scan auch — und zwar für jeden, nicht
+nur für den, der es zuerst fotografiert hat. Deshalb läuft jeder Scan in zwei
+Stufen:
+
+1. **Ablesen** — ein kleines Bildmodell liest Brauerei und Namen vom Etikett.
+   Sekunden statt Minuten.
+2. **Nachschlagen** in der Datenbank:
+   - **Treffer** → die gespeicherte Zerlegung, dazu ein zweiter kleiner Aufruf,
+     der die bekannten Elemente in *diesem* Foto wiederfindet.
+   - **Fehlschlag** → das grosse Modell zerlegt das ganze Etikett; das Ergebnis
+     wird abgelegt.
+
+Der Bildbereich eines Elements wird bewusst **nicht** gespeichert: Dieselbe
+Flasche schräg fotografiert hat andere Koordinaten, ein gespeicherter Rahmen
+sässe beim nächsten Foto neben dem, worauf er zeigen soll. Die Bedeutung eines
+Wappens gilt bierweit, seine Bildposition nicht.
+
+Entscheidend ist dabei ein Detail: Abgelegt wird unter dem Schlüssel, den die
+**erste Stufe** abliest — nicht unter dem, was das grosse Modell daraus macht.
+Die beiden gehen systematisch auseinander. Auf dem Etikett steht
+„TANNEN ZÄPFLE"; das grosse Modell schreibt „Tannenzäpfle Pils" und ergänzt den
+Stil aus seinem Wissen. Unter dieser Fassung abgelegt wäre der Eintrag beim
+nächsten Foto unauffindbar.
 
 ### Die Fundstellen auf dem Foto
 
@@ -168,19 +207,55 @@ Zum Ersetzen: die Datei überschreiben (SVG behält alle Bezüge), oder ein
 `logo.png` in `public/` legen und die beiden Verweise in `index.html`
 (`<link rel="icon">` und `<img src>`) anpassen.
 
-## Der API-Schlüssel — bitte lesen
+## Das Backend
 
-Ohne Server gibt es keinen Ort, an dem ein Schlüssel sicher liegen könnte. Die
-Seite fragt ihn im Browser ab und legt ihn im `localStorage` ab; der Aufruf geht
-direkt an Anthropic (`dangerouslyAllowBrowser`).
+Drei Endpunkte, alle unter `public/api/` — Vite kopiert den Ordner unverändert
+nach `dist/`, damit geht er mit jedem Deploy mit:
 
-**Das ist für den lokalen, persönlichen Gebrauch gedacht.** Wer diese Seite
-öffentlich hostet und einen Schlüssel einträgt, gibt ihn preis — jeder Besucher
-kann ihn auslesen und auf fremde Rechnung nutzen. Soll die Seite ins Netz,
-braucht es einen kleinen Proxy, der den Schlüssel serverseitig hält.
+| Endpunkt              | Methode | Was                                                      |
+| --------------------- | ------- | -------------------------------------------------------- |
+| `/api/etikett.php`    | POST    | Foto hinein, Zerlegung heraus — mit Zwischenspeicher      |
+| `/api/erweitert.php`  | POST    | Foto hinein, die vier Reiter heraus                       |
+| `/api/gesundheit.php` | GET     | Stehen PHP, Datenbank und Modell?                         |
 
-Der Schlüssel steht **nirgends im Repository** und gehört auch nicht hinein.
-Einen bekommst du unter [console.anthropic.com](https://console.anthropic.com/settings/keys).
+Anfrage und Antwort sind schlichtes JSON:
+
+```jsonc
+// POST /api/etikett.php
+{ "bild": "<base64, ohne data:-Vorspann>", "typ": "image/jpeg" }
+
+// 200
+{ "etikett": { … }, "quelle": "speicher", "dauer_ms": 340 }
+
+// Fehler, mit passendem Status
+{ "fehler": "Das Sprachmodell ist nicht erreichbar.",
+  "rat": "Läuft der Rechner, läuft Ollama, steht der Tunnel?" }
+```
+
+Der Bausteinordner `public/api/intern/` ist doppelt gesperrt: per `.htaccess`
+und dadurch, dass jede Datei darin beim direkten Aufruf abbricht. Eine Sperre,
+die von der Serverkonfiguration abhängt, ist keine, auf die man sich allein
+verlassen sollte — reicht der Server eine `.php` einmal als Text aus, weil beim
+Umstellen der PHP-Version das Modul kurz fehlt, stünde der Quelltext im
+Browser.
+
+**`/api/gesundheit.php` ist der erste Griff bei jeder Störung.** Wenn ein Scan
+scheitert, gibt es drei Orte, an denen es klemmen kann, und von aussen sehen
+alle drei gleich aus. Der Endpunkt beantwortet in einem Aufruf, welcher es ist —
+ohne Wirtsnamen und Zugangsdaten preiszugeben.
+
+### Zugangsdaten
+
+Sie liegen in `~/.bierexpert/konfiguration.php` auf dem Server, ausserhalb jedes
+Wurzelverzeichnisses. Zwei Gründe: Was im Wurzelverzeichnis liegt, ist im
+Zweifel abrufbar — und die Auslieferung räumt es bei jedem Lauf mit
+`rsync --delete` leer.
+
+Geschrieben wird die Datei von `deploy/konfiguration.sh` bei jedem Deploy, aus
+den Werten in GitHub. Welche das sind, steht in [`.env.example`](./.env.example).
+Fehlt das Datenbankpasswort, läuft die Anwendung ohne Zwischenspeicher weiter:
+langsamer, aber vollständig. Ein Zwischenspeicher, dessen Ausfall die Anwendung
+schliesst, hätte die Abhängigkeit falsch herum.
 
 ## Lokal starten
 
@@ -191,16 +266,29 @@ npm install
 npm run dev     # http://localhost:5173
 ```
 
-Dann die **Schlüsselkammer** aufklappen, Schlüssel eintragen, verwahren — und
-ein Etikett fotografieren.
+Der Dev-Server liefert nur das Frontend aus; PHP führt er nicht aus. Für die
+Endpunkte gibt es zwei Wege:
+
+```bash
+# Gegen den ausgelieferten Server entwickeln
+echo 'VITE_API_BASIS=https://bierexpert.de/api' > .env.local
+# Dafür muss die eigene Adresse dort unter "herkuenfte" eingetragen sein.
+
+# Oder alles lokal, mit eigenem PHP
+npm run build
+BIEREXPERT_KONFIG=$PWD/.konfiguration.php php -S localhost:8000 -t dist
+```
 
 ## Pipeline und Auslieferung
 
 | Workflow                  | Wann                              | Was                                                        |
 | ------------------------- | --------------------------------- | ---------------------------------------------------------- |
 | `.github/workflows/ci.yml`| Jeder Push, jeder Pull Request    | Typprüfung, Build, 24 Playwright-Tests auf Desktop und Mobil |
-| `deploy.yml`              | Push auf `main`, oder von Hand    | Ruft die CI auf und liefert danach per SSH aus              |
+| `deploy.yml`              | Push auf `main`, oder von Hand    | Ruft die CI auf, schreibt die Konfiguration, liefert per SSH aus |
+| `migrationen.yml`         | Nur von Hand                      | Spielt die Datenbank-Migrationen ein                        |
 | `zuruecksetzen.yml`       | Nur von Hand                      | Setzt auf einen früheren Stand zurück                       |
+| `hostschluessel.yml`      | Nur von Hand                      | Holt den Fingerabdruck des Servers für `SSH_KNOWN_HOSTS`    |
+| `diagnose.yml`            | Nur von Hand                      | Misst von einem Runner aus, was von aussen erreichbar ist   |
 
 Das Deploy ruft die CI auf, statt ihre Schritte zu kopieren — zwei Kopien
 driften auseinander, eine geprüfte Quelle tut das nicht. Schlägt eine Prüfung
@@ -216,9 +304,10 @@ npm run test:ui       # mit Oberfläche zum Nachvollziehen
 ```
 
 Die Tests fahren gegen den Produktionsbuild, nicht gegen den Dev-Server:
-geprüft werden soll, was ausgeliefert wird. Die Anthropic-Aufrufe werden aus
-Testdaten in `tests/fixtures/` beantwortet und Google Fonts abgefangen — kein
-Test hängt am Netz.
+geprüft werden soll, was ausgeliefert wird. Die Aufrufe an `/api/*.php` werden
+aus Testdaten in `tests/fixtures/` beantwortet und Google Fonts abgefangen —
+kein Test hängt am Netz. Geprüft wird also, was der Browser aus einer Antwort
+macht, nicht was das Backend mit Ollama und der Datenbank treibt.
 
 Liegt auf der Maschine schon ein Chromium bereit, das Playwright nicht neu
 laden soll:
@@ -248,44 +337,45 @@ PLAYWRIGHT_CHROMIUM_PATH=/pfad/zu/chromium npm test
 | `index.html`       | Struktur der Seite                                            |
 | `src/main.ts`      | Verdrahtung: Upload, Kamera, Zustände, Rendern des Befunds     |
 | `src/bild.ts`      | Bild einlesen, herunterskalieren, als Base64 aufbereiten       |
-| `src/etikett.ts`   | Der Anthropic-Aufruf samt Fehlerübersetzung                    |
+| `src/etikett.ts`   | Die Aufrufe an die eigene API samt Fehlerübersetzung            |
 | `src/schema.ts`    | Zod-Schema — Laufzeitprüfung und Typ in einem                  |
 | `src/glossar.ts`   | Die Sortendaten des Bierglossars                               |
 | `src/glas.ts`      | Zeichnet ein Bierglas als SVG: Form, Farbe, Schaumkrone        |
 | `public/logo.svg`  | Logo (derzeit Platzhalter, siehe oben)                         |
-| `public/.htaccess` | Apache-Regeln: Cache, HTTPS-Umleitung, Komprimierung           |
-| `deploy/`          | Auslieferung und Rückfall, samt Anleitung                      |
+| `public/.htaccess` | Apache-Regeln: Cache, Komprimierung, keine Verzeichnislisten    |
+| `public/api/`      | Das PHP-Backend — Endpunkte oben, Bausteine in `intern/`        |
+| `db/migrationen/`  | Das Datenbankschema, eine Datei je Schritt                      |
+| `deploy/`          | Auslieferung, Konfiguration, Migrationen, Rückfall              |
 | `tests/`           | Playwright-Tests und ihre Testdaten                            |
 
 ## Offene Punkte
 
-Zwei Dinge, die die Seite in ihrer heutigen Form noch nicht kann und die
-zusammengehören, weil beide serverseitigen Code brauchen:
-
-1. **Der API-Schlüssel liegt im Browser.** Solange die Seite nur lokal läuft,
-   ist das vertretbar. Öffentlich ausgeliefert ist es das nicht — jeder
-   Besucher kann ihn auslesen. Die Auswertung muss auf den Server wandern.
-2. **Das Sprachmodell soll lokal laufen**, nicht über die Anthropic-API. Der
-   Aufruf in `src/etikett.ts` nutzt derzeit das Anthropic-SDK und muss auf den
-   eigenen Endpunkt umgestellt werden. Zu klären ist dabei, was der lokale
-   Dienst bei zwei Punkten anbietet, an denen die heutige Lösung hängt:
-   Bildverstehen und erzwungene JSON-Struktur nach einem Schema.
-3. **Die MariaDB ist angelegt, aber leer.** `atozadec_bierexpert` auf
-   MariaDB 10.11. Der Migrationsweg steht (`deploy/migrationen.sh`), aber wozu
-   die Datenbank dienen soll — Auswertungen aufheben und wiederfinden,
-   Ergebnisse zwischenspeichern statt neu berechnen, ein eigenes Glossar
-   pflegen, Nutzerkonten — entscheidet, wie das Schema aussieht.
-
-Der Datenbank-Host ist nur innerhalb des Hostpoint-Netzes auflösbar. Damit ist
-festgelegt, wo der serverseitige Code laufen muss: auf Hostpoint, und dort
-heißt das PHP. Ein Dienst auf einem eigenen Server käme ohne Tunnel nicht an
-die Daten. Einzelheiten in [`deploy/README.md`](./deploy/README.md).
+1. **Das Logo ist ein Platzhalter.** `public/logo.svg` ist nachgezeichnet, nicht
+   die Datei aus dem Entwurf.
+2. **Das Zertifikat für die Adresse ohne `www`** stand zuletzt bei Hostpoint
+   noch auf „Pending". Solange es fehlt, bleibt die Schaltfläche
+   **Aus Zwischenablage** ohne Funktion — `navigator.clipboard` verlangt einen
+   sicheren Kontext. `Strg+V` funktioniert auch ohne.
+3. **Die Migrationen sind noch nie gelaufen.** `migrationen.yml` muss einmal von
+   Hand gestartet werden, sonst antwortet `/api/gesundheit.php` mit fehlenden
+   Tabellen und jeder Scan geht ans Modell.
+4. **Der Zwischenspeicher trifft nur bei gleicher Lesart.** Der Schlüssel ist
+   Brauerei und Name, kleingeschrieben, ohne Satzzeichen und ohne Wörter wie
+   „GmbH" oder „Brauerei". Liest die erste Stufe beim nächsten Foto etwas
+   anderes ab, entsteht ein zweiter Eintrag statt eines Treffers. Das ist die
+   sichere Richtung — ein falscher Treffer holte die Geschichte eines anderen
+   Bieres, ohne dass irgendwo etwas nach Fehler aussähe. Ob es in der Praxis
+   oft genug trifft, zeigt die Tabelle `scans`: Sie hält fest, wie oft aus dem
+   Speicher geantwortet wurde und was die erste Stufe jeweils gelesen hat.
 
 ## Grenzen
 
 - Deutungen können irren. Heraldik ist mehrdeutig, und das Modell erkennt
   Etiketten gut, aber nicht unfehlbar. Im Zweifel bei der Brauerei nachfragen.
-- Beim Build meldet Vite, dass `node:fs` und `node:path` „externalized for
-  browser compatibility" wurden. Das betrifft den Credential-Chain-Code des
-  Anthropic-SDK, den diese Seite nicht nutzt — der Schlüssel wird explizit
-  übergeben. Die Warnung ist folgenlos.
+- Ein Scan mit unbekanntem Bier dauert so lange, wie das grosse Modell auf der
+  eigenen Hardware braucht — beim allerersten Aufruf zusätzlich die Zeit, das
+  Modell in den Speicher zu laden. Der Browser wartet bis zu 5½ Minuten, dann
+  bricht er mit einer Meldung ab statt endlos zu drehen.
+- Steht vor Ollama ein nginx, muss dort `client_max_body_size` gross genug
+  sein: Ein Foto als base64 bringt schnell mehrere Megabyte mit. Der Endpunkt
+  übersetzt ein HTTP 413 von dort in genau diesen Hinweis.

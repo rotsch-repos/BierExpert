@@ -1,15 +1,19 @@
 import { istErlaubterTyp } from './schema';
 
 /**
- * Anthropic skaliert Bilder ohnehin auf max. 1568 px Kantenlänge herunter.
- * Wir tun das schon im Browser: das spart Upload-Volumen und Tokens,
- * und ein 8-MB-Handyfoto wird damit zu ein paar hundert Kilobyte.
+ * Verkleinert wird im Browser, nicht auf dem Server.
+ *
+ * Ein Handyfoto bringt acht Megabyte mit; als base64 werden daraus elf. Die
+ * müssten über die Mobilverbindung, durch PHP, durch den Tunnel und zuletzt
+ * in den Bildteil des Modells — und dort wird ohnehin skaliert. Bei 1568 px
+ * Kantenlänge bleiben ein paar hundert Kilobyte übrig, und ein Etikett ist
+ * darauf immer noch bis zur Stammwürzeangabe lesbar.
  */
 const MAX_KANTE = 1568;
 const JPEG_QUALITAET = 0.85;
 
 export interface AufbereitetesBild {
-  /** Base64 ohne data:-Präfix — genau das erwartet die Messages API. */
+  /** Base64 ohne data:-Vorspann — genau so erwartet es die eigene API. */
   base64: string;
   medienTyp: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
   /** data:-URL für die Vorschau im DOM. */

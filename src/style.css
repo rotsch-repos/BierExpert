@@ -433,6 +433,19 @@ body::before {
   border-color: var(--secondary-fixed-dim);
 }
 
+/* Herkunft statt Bewertung: leiser als die Zuordnung, denn sie sagt nichts
+   über die Güte der Auskunft aus — nur darüber, dass sie schon einmal
+   eingeholt wurde. */
+.abzeichen-speicher {
+  color: var(--on-surface-variant);
+  background: var(--surface-container);
+  border-color: var(--outline-variant);
+}
+
+/* Zwei Abzeichen nebeneinander: Die Knoten werden ohne Leerraum dazwischen
+   angehängt, sonst stiessen sie aneinander. */
+.abzeichen + .abzeichen { margin-left: var(--space-1); }
+
 /* ==========================================================================
    Zustände
    ========================================================================== */
@@ -474,65 +487,6 @@ body::before {
 }
 
 .fehler p { margin: var(--space-1) 0 0; }
-
-/* ==========================================================================
-   Schlüsselkammer
-   ========================================================================== */
-
-.kammer { margin-top: var(--space-8); }
-
-.kammer summary {
-  padding: var(--space-2) 0;
-  color: var(--on-surface-variant);
-  cursor: pointer;
-  border-top: var(--border-hairline);
-}
-
-.kammer summary:hover { color: var(--on-surface); }
-
-.kammer-inhalt {
-  max-width: 62ch;
-  padding-top: var(--space-2);
-}
-
-.warnung {
-  padding: var(--space-2);
-  margin: 0 0 var(--space-3);
-  color: var(--on-surface);
-  background: var(--surface-container);
-  border-left: 2px solid var(--secondary);
-  border-radius: var(--rounded-sm);
-}
-
-/* Eingabefeld: nur Grundlinie — Kontobuch-Anmutung */
-.feld { display: block; margin-bottom: var(--space-2); }
-
-.feld span { display: block; margin-bottom: var(--space-1); color: var(--outline); }
-
-.feld input {
-  width: 100%;
-  padding: var(--space-1) 0;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 20px;
-  color: var(--on-surface);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--outline);
-  border-radius: 0;
-}
-
-.feld input:focus {
-  outline: none;
-  border-bottom-color: var(--secondary);
-  border-bottom-width: 2px;
-  padding-bottom: calc(var(--space-1) - 1px);
-}
-
-.kammer-status { min-height: 20px; margin: var(--space-2) 0 0; }
-.kammer-status.gut  { color: var(--on-tertiary-fixed-variant); }
-.kammer-status.warn { color: var(--error); }
 
 /* ==========================================================================
    Fußzeile

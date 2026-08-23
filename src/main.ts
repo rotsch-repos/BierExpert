@@ -1,12 +1,10 @@
 import './style.css';
 import { bildAufbereiten, BildFehler, type AufbereitetesBild } from './bild';
-import { erweitertLesen, etikettLesen, EtikettFehler } from './etikett';
+import { erweitertLesen, etikettLesen, EtikettFehler, type Auswertung } from './etikett';
 import type { Bereich, Erweitert, Etikett, Etikettelement } from './schema';
 import { FAMILIEN, SORTEN, type Biersorte, type Familie } from './glossar';
 import { glasZeichnen } from './glas';
 import { ausEreignis, ausZwischenablage, ZwischenablageFehler } from './zwischenablage';
-
-const SPEICHER_SCHLUESSEL = 'bierexpert.apiSchluessel';
 
 /* ---------------------------------------------------------------- Elemente */
 
@@ -27,9 +25,6 @@ const fotoTaste = el<HTMLButtonElement>('fotografieren');
 const verwerfenTaste = el<HTMLButtonElement>('verwerfen');
 const abschnittBefund = el<HTMLElement>('abschnitt-befund');
 const befundZiel = el<HTMLDivElement>('befund');
-const kammer = el<HTMLDetailsElement>('kammer');
-const schluesselFeld = el<HTMLInputElement>('schluessel');
-const kammerStatus = el<HTMLParagraphElement>('kammer-status');
 
 /* ------------------------------------------------------------------ Zustand */
 
@@ -38,46 +33,6 @@ let laeuft = false;
 /** Zählt die Auswertungen mit, damit eine späte Antwort nicht in einen
  *  inzwischen ersetzten Befund schreibt. */
 let laufNummer = 0;
-
-/* ------------------------------------------------------- Schlüsselkammer */
-
-function schluesselLesen(): string {
-  try {
-    return localStorage.getItem(SPEICHER_SCHLUESSEL) ?? '';
-  } catch {
-    // Privater Modus oder blockierte Site-Daten — dann eben ohne Gedächtnis.
-    return '';
-  }
-}
-
-function melden(text: string, art: 'gut' | 'warn' | '' = ''): void {
-  kammerStatus.textContent = text;
-  kammerStatus.className = `kammer-status body-md ${art}`;
-}
-
-el<HTMLButtonElement>('schluessel-speichern').addEventListener('click', () => {
-  const wert = schluesselFeld.value.trim();
-  if (!wert) {
-    melden('Kein Schlüssel eingetragen.', 'warn');
-    return;
-  }
-  try {
-    localStorage.setItem(SPEICHER_SCHLUESSEL, wert);
-    melden('Der Schlüssel ist verwahrt.', 'gut');
-  } catch {
-    melden('Dieser Browser erlaubt kein Speichern. Der Schlüssel gilt nur für diese Sitzung.', 'warn');
-  }
-});
-
-el<HTMLButtonElement>('schluessel-loeschen').addEventListener('click', () => {
-  try {
-    localStorage.removeItem(SPEICHER_SCHLUESSEL);
-  } catch {
-    /* nichts zu tilgen */
-  }
-  schluesselFeld.value = '';
-  melden('Der Schlüssel wurde getilgt.');
-});
 
 /* ------------------------------------------------------------ Bild annehmen */
 
@@ -196,15 +151,6 @@ document.addEventListener('paste', (e) => {
 lesenTaste.addEventListener('click', async () => {
   if (!aktuellesBild || laeuft) return;
 
-  const schluessel = schluesselFeld.value.trim() || schluesselLesen();
-  if (!schluessel) {
-    kammer.open = true;
-    melden('Ohne Schlüssel geht es nicht weiter.', 'warn');
-    kammer.scrollIntoView({ block: 'center' });
-    schluesselFeld.focus();
-    return;
-  }
-
   laeuft = true;
   lesenTaste.disabled = true;
   lesenTaste.textContent = 'Wird gelesen …';
@@ -214,15 +160,17 @@ lesenTaste.addEventListener('click', async () => {
   // Etikettzerlegung mitzureißen — deshalb wird er hier nur angestoßen und
   // erst in den Reitern ausgewertet.
   const lauf = ++laufNummer;
-  const erweitertVersprechen = erweitertLesen(schluessel, aktuellesBild);
+  // Die Reiter brauchen nur die Daten, nicht den Umschlag mit Herkunft und
+  // Dauer — der interessiert allein bei der Zerlegung.
+  const erweitertVersprechen = erweitertLesen(aktuellesBild).then((a) => a.daten);
   // Fängt die Ablehnung ab, damit sie nicht als unbehandelt gemeldet wird,
   // falls der erste Aufruf vorher scheitert und niemand mehr zuhört.
   erweitertVersprechen.catch(() => undefined);
 
   try {
-    const etikett = await etikettLesen(schluessel, aktuellesBild);
+    const auswertung = await etikettLesen(aktuellesBild);
     if (lauf !== laufNummer) return;
-    befundZeichnen(etikett, erweitertVersprechen);
+    befundZeichnen(auswertung, erweitertVersprechen);
   } catch (fehler) {
     if (lauf !== laufNummer) return;
     const f = fehler as EtikettFehler;
@@ -266,7 +214,8 @@ function zeigeFehler(titel: string, rat?: string): void {
 }
 
 /** Baut den Befund auf. Durchgehend textContent — kein HTML aus der Modellantwort. */
-function befundZeichnen(e: Etikett, erweitert: Promise<Erweitert>): void {
+function befundZeichnen(auswertung: Auswertung<Etikett>, erweitert: Promise<Erweitert>): void {
+  const e = auswertung.daten;
   const ziel = abschnittOeffnen();
   const blatt = document.createElement('article');
   blatt.className = 'chronik-blatt';
@@ -303,7 +252,23 @@ function befundZeichnen(e: Etikett, erweitert: Promise<Erweitert>): void {
   abzeichen.className = `abzeichen label-caps${e.sicherheit === 'niedrig' ? ' abzeichen-niedrig' : ''}`;
   abzeichen.textContent = `Zuordnung ${e.sicherheit}`;
 
-  blatt.append(abzeichen, kopf);
+  blatt.append(abzeichen);
+
+  // Woher die Auskunft stammt, gehört dazu: Eine Zerlegung aus einer
+  // früheren Auswertung beschreibt dasselbe Bier, aber nicht dieses Foto.
+  // Hat sich das Etikett seither geändert, steht hier der ältere Stand —
+  // und der Leser soll das wissen, statt es zu erraten.
+  if (auswertung.quelle === 'speicher') {
+    const gedaechtnis = document.createElement('span');
+    gedaechtnis.className = 'abzeichen abzeichen-speicher label-caps';
+    gedaechtnis.title =
+      'Dieses Bier wurde schon einmal ausgewertet. Die Zerlegung kommt aus der ' +
+      'Datenbank, nur die Markierungen auf der Flasche sind für dieses Foto neu bestimmt.';
+    gedaechtnis.textContent = 'Aus dem Gedächtnis';
+    blatt.append(gedaechtnis);
+  }
+
+  blatt.append(kopf);
 
   blatt.append(
     tafelBauen([
@@ -811,14 +776,6 @@ function textBlock(ueberschrift: string, text: string): HTMLElement {
   }
 
   return abschnitt;
-}
-
-/* ------------------------------------------------------------------- Start */
-
-const vorhanden = schluesselLesen();
-if (vorhanden) {
-  schluesselFeld.value = vorhanden;
-  melden('Ein Schlüssel liegt verwahrt.', 'gut');
 }
 
 /* ==========================================================================
