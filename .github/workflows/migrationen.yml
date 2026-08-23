@@ -1,0 +1,81 @@
+name: Migrationen einspielen
+
+# Nur von Hand. Schemaänderungen an einer laufenden Datenbank sind eine
+# Entscheidung, keine Nebenwirkung eines Pushes.
+#
+# Läuft über SSH auf dem Hostpoint-Server: Der Datenbank-Host ist nur
+# innerhalb des Hostpoint-Netzes auflösbar, ein Runner erreicht ihn nicht.
+on:
+  workflow_dispatch:
+    inputs:
+      probelauf:
+        description: 'Nur zeigen, was eingespielt würde'
+        type: boolean
+        default: true
+
+concurrency:
+  group: migrationen
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  einspielen:
+    name: Datenbank auf Stand bringen
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: produktion
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Einstellungen prüfen
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+          DBHOST: ${{ vars.DB_HOST }}
+          DBNAME: ${{ vars.DB_NAME }}
+          DBUSER: ${{ vars.DB_USER }}
+        run: |
+          fehlt=0
+          [ -z "$HOST" ]   && { echo "::error::Variable DEPLOY_HOST fehlt."; fehlt=1; }
+          [ -z "$DBHOST" ] && { echo "::error::Variable DB_HOST fehlt."; fehlt=1; }
+          [ -z "$DBNAME" ] && { echo "::error::Variable DB_NAME fehlt."; fehlt=1; }
+          [ -z "$DBUSER" ] && { echo "::error::Variable DB_USER fehlt."; fehlt=1; }
+          [ -z "${{ secrets.DB_PASSWORT }}" ] && { echo "::error::Secret DB_PASSWORT fehlt."; fehlt=1; }
+          exit $fehlt
+
+      - name: SSH einrichten
+        env:
+          SCHLUESSEL: ${{ secrets.SSH_PRIVATE_KEY }}
+          BEKANNTE_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SCHLUESSEL" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$BEKANNTE_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+
+      - name: Einspielen
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          DB_HOST: ${{ vars.DB_HOST }}
+          DB_NAME: ${{ vars.DB_NAME }}
+          DB_USER: ${{ vars.DB_USER }}
+          DB_PASSWORT: ${{ secrets.DB_PASSWORT }}
+          PROBELAUF: ${{ inputs.probelauf && 'ja' || 'nein' }}
+        run: |
+          cat >> ~/.ssh/config <<CFG
+          Host ${DEPLOY_HOST}
+            User ${DEPLOY_USER}
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          CFG
+          chmod 600 ~/.ssh/config
+          ./deploy/migrationen.sh
+
+      - name: Schlüssel entfernen
+        if: always()
+        run: rm -f ~/.ssh/id_deploy
