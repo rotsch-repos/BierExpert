@@ -49,9 +49,17 @@ gewusste Elemente werden offen als solche benannt.
    eine Grammatik, die die Ausgabe erzwingt.
 4. Der Browser prüft die Antwort noch einmal gegen das Zod-Schema und rendert.
 
-Zwei Aufrufe laufen dabei nebeneinander: `etikett.php` für die Zerlegung,
-`erweitert.php` für die vier Reiter. Der Leser wartet damit einmal statt
-zweimal, und scheitert der zweite, steht die Zerlegung trotzdem.
+Zwei Aufrufe nacheinander: `etikett.php` für die Zerlegung, danach
+`erweitert.php` für die vier Reiter. Scheitert der zweite, steht die Zerlegung
+trotzdem — die Reiter bleiben dann eben leer.
+
+Nacheinander und nicht nebeneinander, obwohl parallel auf den ersten Blick
+schneller klingt. Am anderen Ende läuft ohnehin nur eine Auswertung zur Zeit
+(gemessen: zwei parallele Aufrufe brauchen exakt doppelt so lang wie einer),
+nebeneinander gestartet warten sie also bloß aufeinander. Nacheinander spart
+sogar einen ganzen Modellaufruf: Beim zweiten Aufruf weiß der Server schon,
+welches Bier auf dem Foto ist — er erkennt es an der Prüfsumme des Bildes im
+Scan-Protokoll wieder und muss nicht ein zweites Mal ablesen.
 
 ### Warum ein Server dazwischen
 

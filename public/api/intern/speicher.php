@@ -207,13 +207,84 @@ function bierSpeichern(string $schluessel, array $etikett, string $modell): ?int
 }
 
 /**
- * Legt die erweiterte Sicht ab.
+ * Findet über die Prüfsumme des Fotos heraus, welches Bier dazu bestimmt wurde.
  *
- * Ein Aufruf für sich: Er läuft neben der Etikettzerlegung und muss auch
- * dann etwas ablegen können, wenn zu dem Bier noch keine Zeile besteht.
- * Deshalb ein INSERT mit ON DUPLICATE KEY UPDATE, das ausschliesslich die
- * Spalte "erweitert" anfasst — der eine Schritt kann sich mit dem anderen
- * nicht überschneiden, weil die Datenbank ihn als Ganzes ausführt.
+ * Der Umweg über das Scan-Protokoll spart einen ganzen Modellaufruf. Beide
+ * Endpunkte bekommen dasselbe Foto und errechnen daraus dieselbe Prüfsumme;
+ * hat etikett.php das Bier eben bestimmt, steht es im Protokoll und
+ * erweitert.php muss nicht noch einmal ablesen, wer es gebraut hat.
+ *
+ * Warum nicht einfach den Schlüssel vom Browser mitschicken lassen: Ein
+ * mitgeschickter Schlüssel wäre eine Behauptung des Aufrufers. Wer einen
+ * fremden einträgt, bekäme die Auskunft zu einem anderen Bier — oder legte
+ * unter fremdem Namen ab. Die Prüfsumme dagegen errechnet der Server aus dem
+ * Bild, das er selbst in Händen hält.
+ *
+ * @return array{id:int, brauerei:string, name:string, erweitert:?array}|null
+ */
+function bierZuScan(string $pruefsumme): ?array
+{
+    $db = datenbank();
+    if ($db === null) {
+        return null;
+    }
+
+    try {
+        // Der jüngste Scan zu diesem Bild. Älteren Läufen desselben Fotos
+        // vorzuziehen, weil zwischenzeitlich eine bessere Auswertung
+        // entstanden sein kann.
+        $abfrage = $db->prepare(
+            'SELECT b.id, b.brauerei, b.name, b.erweitert
+               FROM scans s
+               JOIN biere b ON b.id = s.bier_id
+              WHERE s.bild_pruefsumme = ?
+              ORDER BY s.id DESC
+              LIMIT 1',
+        );
+        $abfrage->execute([$pruefsumme]);
+        $zeile = $abfrage->fetch();
+
+        if ($zeile === false) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $zeile['id'],
+            'brauerei' => (string) $zeile['brauerei'],
+            'name' => (string) $zeile['name'],
+            'erweitert' => jsonSpalte($zeile['erweitert']),
+        ];
+    } catch (PDOException $fehler) {
+        error_log('BierExpert: Scan-Nachschlag fehlgeschlagen — ' . $fehler->getMessage());
+        return null;
+    }
+}
+
+/** Legt die erweiterte Sicht zu einem bereits bekannten Bier ab. */
+function erweitertSpeichernZuKennung(int $bierId, array $erweitert): void
+{
+    $db = datenbank();
+    if ($db === null) {
+        return;
+    }
+
+    try {
+        $db->prepare('UPDATE biere SET erweitert = ? WHERE id = ?')
+            ->execute([alsJson($erweitert), $bierId]);
+    } catch (PDOException $fehler) {
+        error_log('BierExpert: Erweiterte Sicht nicht gespeichert — ' . $fehler->getMessage());
+    }
+}
+
+/**
+ * Legt die erweiterte Sicht ab, wenn nur der Schlüssel bekannt ist.
+ *
+ * Der Rückfallweg: Steht keine Datenbankzeile zu diesem Foto, hat
+ * erweitert.php selbst abgelesen und kennt nur Brauerei und Namen. Dann muss
+ * die Zeile womöglich erst entstehen — deshalb ein INSERT mit ON DUPLICATE
+ * KEY UPDATE, das ausschliesslich die Spalte "erweitert" anfasst. Läuft
+ * etikett.php gleichzeitig, kann sich der eine Schritt mit dem anderen nicht
+ * überschneiden, weil die Datenbank ihn als Ganzes ausführt.
  */
 function erweitertSpeichern(string $schluessel, string $brauerei, string $name, array $erweitert, string $modell): void
 {

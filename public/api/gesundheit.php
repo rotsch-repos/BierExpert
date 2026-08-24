@@ -158,7 +158,7 @@ function modellPruefen(array $llm): array
 
     $befund = ['erreichbar' => true, 'vorhandene_modelle' => $vorhanden];
 
-    // Ollama nennt Modelle mit Markierung ("qwen3-vl:32b"). Eingetragen ist
+    // Ollama nennt Modelle mit Markierung ("qwen3-vl:30b"). Eingetragen ist
     // womöglich nur der Name. Beides soll als vorhanden gelten.
     foreach (['modell', 'modell_schnell'] as $welches) {
         $gesucht = $llm[$welches];

@@ -8,11 +8,12 @@ test.describe('Etikett auswerten', () => {
     await bisBefund(page);
     await expect(page.locator('.reiterfeld .warten')).toHaveCount(0);
 
-    // Die Aufteilung bleibt: zwei Endpunkte, nicht einer. Sie hat ihren
-    // Grund inzwischen gewechselt — früher sprengte ein zusammengelegtes
-    // Schema die Grammatikgrenze der API, heute laufen die beiden Aufrufe
-    // nebeneinander, damit der Leser einmal wartet statt zweimal.
-    expect(gesehen.map((g) => g.art).sort()).toEqual(['erweitert', 'etikett']);
+    // Zwei Endpunkte, und zwar in dieser Reihenfolge. Der zweite darf erst
+    // laufen, wenn der erste durch ist: Nur dann weiß der Server schon,
+    // welches Bier auf dem Foto ist, und spart sich das Ablesen ein zweites
+    // Mal. Nebeneinander gestartet brächte das nichts — am anderen Ende
+    // läuft ohnehin nur eine Auswertung zur Zeit.
+    expect(gesehen.map((g) => g.art)).toEqual(['etikett', 'erweitert']);
 
     for (const aufruf of gesehen) {
       expect(aufruf.methode, `${aufruf.art}: geht per POST`).toBe('POST');

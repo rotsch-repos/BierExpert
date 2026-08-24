@@ -64,7 +64,7 @@ return [
     'llm' => [
         'endpunkt' => $(php_text "${LLM_ENDPUNKT}"),
         'schluessel' => $(php_text "${LLM_SCHLUESSEL:-}"),
-        'modell' => $(php_text "${LLM_MODELL:-qwen3-vl:32b}"),
+        'modell' => $(php_text "${LLM_MODELL:-qwen3-vl:30b}"),
         'modell_schnell' => $(php_text "${LLM_MODELL_SCHNELL:-qwen3-vl:8b}"),
         'zeitgrenze' => ${LLM_ZEITGRENZE:-300},
         'zeitgrenze_schnell' => ${LLM_ZEITGRENZE_SCHNELL:-90},

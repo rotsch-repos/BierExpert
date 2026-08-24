@@ -252,6 +252,14 @@ function statusFehler(int $status, string $rumpf, string $adresse): BierFehler
                 . 'Dienstes, ohne "/api" am Ende?',
             502,
         ),
+        $status === 429 || $status === 503 => new BierFehler(
+            'Zu viele Anfragen in kurzer Zeit.',
+            ($gemeldet !== '' ? $gemeldet . ' — ' : '')
+                . 'Vor dem Modell steht eine Drosselung, und alle Anfragen dieser Seite '
+                . 'kommen von derselben Adresse — sie teilen sich also einen Eimer. '
+                . 'Warte einen Augenblick und versuch es erneut.',
+            503,
+        ),
         $status === 413 => new BierFehler(
             'Das Bild war für den Server vor dem Modell zu gross.',
             'In der nginx-Konfiguration client_max_body_size erhöhen — ein Foto als base64 '

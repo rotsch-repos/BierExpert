@@ -156,20 +156,31 @@ lesenTaste.addEventListener('click', async () => {
   lesenTaste.textContent = 'Wird gelesen …';
   wartenZeigen();
 
-  // Beide Aufrufe zugleich starten. Der zweite darf scheitern, ohne die
-  // Etikettzerlegung mitzureißen — deshalb wird er hier nur angestoßen und
-  // erst in den Reitern ausgewertet.
   const lauf = ++laufNummer;
-  // Die Reiter brauchen nur die Daten, nicht den Umschlag mit Herkunft und
-  // Dauer — der interessiert allein bei der Zerlegung.
-  const erweitertVersprechen = erweitertLesen(aktuellesBild).then((a) => a.daten);
-  // Fängt die Ablehnung ab, damit sie nicht als unbehandelt gemeldet wird,
-  // falls der erste Aufruf vorher scheitert und niemand mehr zuhört.
-  erweitertVersprechen.catch(() => undefined);
+  const bild = aktuellesBild;
 
   try {
-    const auswertung = await etikettLesen(aktuellesBild);
+    const auswertung = await etikettLesen(bild);
     if (lauf !== laufNummer) return;
+
+    // Erst jetzt die erweiterte Sicht anstoßen, nicht schon vorhin daneben.
+    //
+    // Das war einmal anders: Beide Aufrufe zugleich zu starten hieß, der
+    // Leser wartet einmal statt zweimal. Nur bringt das nichts, wenn am
+    // anderen Ende ohnehin nur eine Auswertung zur Zeit läuft — gemessen auf
+    // dem Rechner mit dem Modell brauchen zwei parallele Aufrufe exakt
+    // doppelt so lang wie einer. Nebeneinander gestartet warten sie bloß
+    // aufeinander.
+    //
+    // Nacheinander ist sogar schneller: Der Server weiß dann schon aus dem
+    // ersten Aufruf, welches Bier auf dem Foto ist, und spart sich einen
+    // ganzen Modellaufruf. Er erkennt es an der Prüfsumme des Bildes wieder.
+    const erweitertVersprechen = erweitertLesen(bild).then((a) => a.daten);
+    // Fängt die Ablehnung ab, damit sie nicht als unbehandelt gemeldet wird:
+    // Ausgewertet wird sie erst in den Reitern, und dorthin sieht womöglich
+    // niemand.
+    erweitertVersprechen.catch(() => undefined);
+
     befundZeichnen(auswertung, erweitertVersprechen);
   } catch (fehler) {
     if (lauf !== laufNummer) return;

@@ -68,7 +68,16 @@ function konfiguration(): array
             'schluessel' => (string) ($roh['llm']['schluessel'] ?? ''),
             // Das große Modell mit Bildverständnis: zerlegt das Etikett und
             // gibt die Bildbereiche an.
-            'modell' => (string) ($roh['llm']['modell'] ?? 'qwen3-vl:32b'),
+            //
+            // qwen3-vl:30b und nicht :32b, obwohl die Zahl kleiner aussieht.
+            // Der 30b ist ein MoE-Modell und rechnet nur einen Bruchteil
+            // seiner Gewichte je Token; auf derselben Karte und derselben
+            // Etikettaufgabe gemessen: 11 s gegen 135 s, bei besserer
+            // Trefferlage. Das ist nicht bloss angenehmer — Cloudflare bricht
+            // eine Verbindung nach 100 Sekunden ab, wenn bis dahin kein Byte
+            // geflossen ist. Mit dem 32b liefe der erste Aufruf in genau
+            // diesen Abbruch.
+            'modell' => (string) ($roh['llm']['modell'] ?? 'qwen3-vl:30b'),
             // Das kleine für die beiden schnellen Durchgänge: erst ablesen,
             // wer es gebraut hat, später die bekannten Elemente im Foto
             // wiederfinden. Beides braucht kein großes Modell.

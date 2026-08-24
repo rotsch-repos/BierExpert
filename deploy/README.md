@@ -61,7 +61,7 @@ das und bricht ab, wenn es der Fall ist.
 | `DB_USER`         | `atozadec_expert`                    |
 
 Optional: `DEPLOY_PORT` (Vorgabe 22), `DEPLOY_BEHALTEN` (Vorgabe 5),
-`LLM_MODELL` (Vorgabe `qwen3-vl:32b`), `LLM_MODELL_SCHNELL` (Vorgabe
+`LLM_MODELL` (Vorgabe `qwen3-vl:30b`), `LLM_MODELL_SCHNELL` (Vorgabe
 `qwen3-vl:8b`).
 
 Diese Werte sind bewusst Variablen und keine Secrets: Sie sind nicht geheim,
