@@ -40,8 +40,11 @@ function konfiguration(): array
     if (!is_file($pfad) || !is_readable($pfad)) {
         throw new BierFehler(
             'Der Server ist noch nicht eingerichtet.',
-            'Es fehlt die Konfigurationsdatei ' . $pfad . '. Sie wird vom '
-                . 'Arbeitsablauf "Konfiguration schreiben" angelegt.',
+            'Es fehlt die Konfigurationsdatei ' . $pfad . '. Sie entsteht beim '
+                . 'Deploy im Schritt "Konfiguration auf den Server schreiben". '
+                . 'Häufigster Grund, dass sie fehlt: Das Secret LLM_ENDPUNKT ist '
+                . 'nicht hinterlegt — dann schreibt der Schritt nichts, ohne das '
+                . 'Deploy rot zu färben.',
             503,
         );
     }

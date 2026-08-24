@@ -22,15 +22,18 @@ SSH="ssh -p ${PORT} -o BatchMode=yes"
 ZIEL="${DEPLOY_USER}@${DEPLOY_HOST}"
 PFAD="${KONFIG_PFAD:-.bierexpert/konfiguration.php}"
 
-# Ohne Modell hätte die Konfiguration keinen Zweck. Die Datenbank darf
-# fehlen — dann läuft die Anwendung ohne Zwischenspeicher, langsamer, aber
-# vollständig. Das ist ein Zustand, kein Fehler, und wird als solcher
-# gemeldet statt den Lauf abzubrechen.
+# Fehlt die Adresse des Modells, wird die Konfiguration trotzdem
+# geschrieben. Der frühere Ausstieg an dieser Stelle war teurer, als er
+# aussah: Ohne Datei meldet /api/gesundheit.php nur "Server noch nicht
+# eingerichtet" und verschweigt, dass allein die Adresse fehlt — dabei hat
+# der Endpunkt für genau diesen Fall ein eigenes Feld. Und der
+# Datenbankteil, der ja stimmen kann, ging gleich mit verloren.
+#
+# Als Warnung und nicht als Abbruch: Ohne Modell steht die Seite trotzdem,
+# und ein rotes Deploy hälfe niemandem. Im Lauf ist die Warnung sichtbar,
+# statt in einer Zeile Protokoll unterzugehen.
 if [ -z "${LLM_ENDPUNKT:-}" ]; then
-  echo "==> Übersprungen: LLM_ENDPUNKT ist nicht hinterlegt."
-  echo "    Ohne die Adresse des Sprachmodells kann die Anwendung nichts auswerten."
-  echo "    Zu hinterlegen unter Settings → Secrets and variables → Actions."
-  exit 0
+  echo "::warning title=Kein Sprachmodell hinterlegt::LLM_ENDPUNKT ist nicht hinterlegt — die Anwendung kann keine Etiketten auswerten. Zu hinterlegen unter Settings → Secrets and variables → Actions."
 fi
 
 if [ -z "${DB_PASSWORT:-}" ]; then
@@ -62,7 +65,7 @@ return [
         'passwort' => $(php_text "${DB_PASSWORT:-}"),
     ],
     'llm' => [
-        'endpunkt' => $(php_text "${LLM_ENDPUNKT}"),
+        'endpunkt' => $(php_text "${LLM_ENDPUNKT:-}"),
         'schluessel' => $(php_text "${LLM_SCHLUESSEL:-}"),
         'modell' => $(php_text "${LLM_MODELL:-qwen3-vl:30b}"),
         'modell_schnell' => $(php_text "${LLM_MODELL_SCHNELL:-qwen3-vl:8b}"),
