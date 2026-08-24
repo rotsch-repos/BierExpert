@@ -47,6 +47,6 @@ $SSH "$ZIEL" "
   [ -n \"\$ziel\" ] || { echo 'Kein früherer Stand vorhanden.' >&2; exit 1; }
   [ -s \"\$ziel/index.html\" ] || { echo \"Stand \$ziel ist unvollständig.\" >&2; exit 1; }
   echo \"==> Zurück auf \$ziel\"
-  rsync -a --delete \"\$ziel/\" '${DEPLOY_DOCROOT}/'
+  rsync -a --delete --exclude='.well-known/' \"\$ziel/\" '${DEPLOY_DOCROOT}/'
 "
 echo '==> Zurückgesetzt'
