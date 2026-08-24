@@ -85,7 +85,7 @@ $SSH "$ZIEL" "
 
 if [ "$PROBELAUF" = "ja" ]; then
   echo "==> Das würde sich im Wurzelverzeichnis ändern:"
-  $SSH "$ZIEL" "mkdir -p '${DEPLOY_DOCROOT}' && rsync -an --delete --itemize-changes '${STAND}/' '${DEPLOY_DOCROOT}/'"
+  $SSH "$ZIEL" "mkdir -p '${DEPLOY_DOCROOT}' && rsync -an --delete --exclude='.well-known/' --itemize-changes '${STAND}/' '${DEPLOY_DOCROOT}/'"
   echo "==> Probelauf beendet — nichts verändert."
   exit 0
 fi
@@ -95,7 +95,14 @@ echo "==> Übernehmen"
 # --delete räumt weg, was nicht mehr zum Build gehört. Das ist gewollt, aber
 # es heißt auch: In diesem Verzeichnis darf nichts von Hand liegen, das
 # überleben soll.
-$SSH "$ZIEL" "mkdir -p '${DEPLOY_DOCROOT}' && rsync -a --delete '${STAND}/' '${DEPLOY_DOCROOT}/'"
+#
+# Eine Ausnahme braucht es: .well-known/ gehört nicht zum Build, sondern dem
+# Anbieter. Dort legt Hostpoint den Nachweis ab, mit dem die
+# Zertifizierungsstelle prüft, dass uns die Domain gehört. Der Nachweis liegt
+# nur die wenigen Minuten, bis er abgeholt wird — fällt ein Deploy in dieses
+# Fenster, ist er weg, die Prüfung scheitert, und das Zertifikat bleibt in
+# der Aktivierung stehen. Ausgenommene Pfade rührt --delete nicht an.
+$SSH "$ZIEL" "mkdir -p '${DEPLOY_DOCROOT}' && rsync -a --delete --exclude='.well-known/' '${STAND}/' '${DEPLOY_DOCROOT}/'"
 
 echo "==> Aufräumen (die letzten ${BEHALTEN} Stände bleiben)"
 $SSH "$ZIEL" "

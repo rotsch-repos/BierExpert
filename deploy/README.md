@@ -29,6 +29,14 @@ Prüfungen durch, bleibt die laufende Seite unangetastet und der unvollständige
 Stand wird weggeräumt — sonst wäre er der neueste Eintrag im Ablageordner und
 damit genau das, was ein Rückfall zuerst auswählen würde.
 
+Ausgenommen vom Aufräumen ist `.well-known/`. Dieser Ordner gehört nicht zum
+Build, sondern dem Anbieter: Dort legt Hostpoint den Nachweis ab, mit dem die
+Zertifizierungsstelle prüft, dass uns die Domain gehört. Der Nachweis liegt nur
+die wenigen Minuten, bis er abgeholt wird. Ohne diese Ausnahme löscht ihn ein
+Deploy, das in dieses Fenster fällt — die Prüfung scheitert dann, und das
+Zertifikat bleibt in der Aktivierung stehen, ohne dass am Zertifikat selbst
+etwas falsch wäre.
+
 Die letzten fünf Stände bleiben liegen. Ein Rückfall ist deshalb ein
 serverseitiges Kopieren: keine Übertragung, kein Build, und er funktioniert
 auch dann noch, wenn der Build gerade nicht durchläuft.
