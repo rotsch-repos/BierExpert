@@ -37,11 +37,24 @@ $SSH "$ZIEL" "command -v mysql >/dev/null" \
 # Fall wieder verschwindet.
 FERN_CNF=".bierexpert-migration-$$.cnf"
 
+# Werte in der Optionsdatei MÜSSEN in Anführungszeichen: '#' beginnt sonst
+# auch mitten in der Zeile einen Kommentar, Backslash leitet Escape-Folgen
+# ein, und Leerzeichen am Rand fallen weg. Ein Passwort mit einem dieser
+# Zeichen käme verstümmelt bei der Datenbank an — und der Fehler sähe aus
+# wie ein falsches Secret. In doppelten Anführungszeichen bleibt alles
+# wörtlich; nur Backslash und das Anführungszeichen selbst brauchen eines.
+cnf_wert() {
+  local wert="${1-}"
+  wert="${wert//\\/\\\\}"
+  wert="${wert//\"/\\\"}"
+  printf '"%s"' "$wert"
+}
+
 $SSH "$ZIEL" "umask 077 && cat > '${FERN_CNF}'" <<CNF
 [client]
-host=${DB_HOST}
-user=${DB_USER}
-password=${DB_PASSWORT}
+host=$(cnf_wert "${DB_HOST}")
+user=$(cnf_wert "${DB_USER}")
+password=$(cnf_wert "${DB_PASSWORT}")
 CNF
 
 # trap sorgt dafür, dass die Datei auch bei Abbruch weggeräumt wird.
