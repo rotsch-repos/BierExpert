@@ -12,6 +12,11 @@ on:
         type: string
         required: true
         default: 'bierexpert.de'
+      origin:
+        description: 'Zusätzlich diesen Server direkt fragen (IP), am Proxy vorbei'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -70,3 +75,25 @@ jobs:
           echo | timeout 20 openssl s_client -connect "$HOST:443" -servername "$HOST" 2>/dev/null \
             | openssl x509 -noout -subject -issuer -dates 2>/dev/null \
             || echo "Kein Zertifikat erhalten — https antwortet nicht."
+
+      # Steht ein Proxy davor, zeigt der Blick auf die Domain nur dessen
+      # Zertifikat. Was der eigentliche Server dahinter vorweisen kann,
+      # sagt erst eine Verbindung direkt zu seiner Adresse — mit dem
+      # Domainnamen im SNI, denn danach wählt er den passenden vhost.
+      - name: Zertifikat an der Origin
+        if: ${{ inputs.origin != '' }}
+        env:
+          HOST: ${{ inputs.host }}
+          ORIGIN: ${{ inputs.origin }}
+        run: |
+          echo "════ Zertifikat direkt bei $ORIGIN (SNI $HOST) ════"
+          echo | timeout 20 openssl s_client -connect "$ORIGIN:443" -servername "$HOST" 2>/dev/null \
+            | openssl x509 -noout -subject -issuer -dates 2>/dev/null \
+            || echo "Kein Zertifikat erhalten — https antwortet dort nicht."
+          echo
+          echo "════ Antwort der Origin über https (Host $HOST) ════"
+          # -k: Auch mit unpassendem Zertifikat interessiert die Antwort.
+          curl -sS -k -D - -o /dev/null --max-time 20 --resolve "$HOST:443:$ORIGIN" "https://$HOST/" 2>&1 | head -12 || true
+          echo
+          echo "════ Antwort der Origin über http (Host $HOST) ════"
+          curl -sS -D - -o /dev/null --max-time 20 --resolve "$HOST:80:$ORIGIN" "http://$HOST/" 2>&1 | head -12 || true
