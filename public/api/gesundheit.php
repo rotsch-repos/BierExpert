@@ -40,9 +40,16 @@ try {
         'gefunden' => true,
         'datenbank_angaben' => $konfiguration['db']['host'] !== '' && $konfiguration['db']['name'] !== '',
         'datenbank_passwort' => $konfiguration['db']['passwort'] !== '',
-        'modell_endpunkt' => $konfiguration['llm']['endpunkt'] !== '',
-        'modell' => $konfiguration['llm']['modell'],
-        'modell_schnell' => $konfiguration['llm']['modell_schnell'],
+        'anbieter' => $konfiguration['llm']['anbieter'],
+        'modell_endpunkt' => $konfiguration['llm']['anbieter'] === 'anthropic'
+            ? $konfiguration['llm']['anthropic_schluessel'] !== ''
+            : $konfiguration['llm']['endpunkt'] !== '',
+        'modell' => $konfiguration['llm']['anbieter'] === 'anthropic'
+            ? $konfiguration['llm']['anthropic_modell']
+            : $konfiguration['llm']['modell'],
+        'modell_schnell' => $konfiguration['llm']['anbieter'] === 'anthropic'
+            ? $konfiguration['llm']['anthropic_modell_schnell']
+            : $konfiguration['llm']['modell_schnell'],
         'zwischenspeicher' => $konfiguration['speicher'],
     ];
 } catch (BierFehler $fehler) {
@@ -109,6 +116,10 @@ antwortSenden(200, $befund);
 
 function modellPruefen(array $llm): array
 {
+    if ($llm['anbieter'] === 'anthropic') {
+        return anthropicPruefen($llm);
+    }
+
     if ($llm['endpunkt'] === '') {
         return ['erreichbar' => false, 'rat' => 'In der Konfiguration fehlt llm.endpunkt.'];
     }
@@ -179,4 +190,68 @@ function modellPruefen(array $llm): array
     }
 
     return $befund;
+}
+
+
+/**
+ * Fragt die Anthropic-API, ob der Schlüssel gilt und die Modelle existieren.
+ *
+ * /v1/models ist der leichteste Aufruf, der beides beantwortet — dieselbe
+ * Rolle, die /api/tags bei Ollama spielt.
+ */
+function anthropicPruefen(array $llm): array
+{
+    if ($llm['anthropic_schluessel'] === '') {
+        return ['erreichbar' => false, 'rat' => 'llm.anbieter steht auf "anthropic", aber es ist kein Schlüssel hinterlegt.'];
+    }
+
+    $griff = curl_init($llm['anthropic_basis'] . '/v1/models');
+    if ($griff === false) {
+        return ['erreichbar' => false];
+    }
+
+    curl_setopt_array($griff, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'x-api-key: ' . $llm['anthropic_schluessel'],
+            'anthropic-version: 2023-06-01',
+        ],
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_FOLLOWLOCATION => false,
+    ]);
+
+    $roh = curl_exec($griff);
+    $status = (int) curl_getinfo($griff, CURLINFO_RESPONSE_CODE);
+    $fehlertext = curl_error($griff);
+    curl_close($griff);
+
+    if ($roh === false) {
+        return ['erreichbar' => false, 'rat' => $fehlertext];
+    }
+    if ($status === 401 || $status === 403) {
+        return ['erreichbar' => false, 'rat' => 'Der Schlüssel wurde abgewiesen (Status ' . $status . ').'];
+    }
+    if ($status !== 200) {
+        return ['erreichbar' => false, 'rat' => 'Antwort mit Status ' . $status . ': ' . kurz((string) $roh, 200)];
+    }
+
+    $daten = json_decode((string) $roh, true);
+    if (!is_array($daten) || !is_array($daten['data'] ?? null)) {
+        return ['erreichbar' => false, 'rat' => 'Unter dieser Adresse antwortet keine Anthropic-API.'];
+    }
+
+    $vorhanden = [];
+    foreach ($daten['data'] as $modell) {
+        if (is_array($modell) && isset($modell['id'])) {
+            $vorhanden[] = (string) $modell['id'];
+        }
+    }
+
+    return [
+        'erreichbar' => true,
+        'vorhandene_modelle' => $vorhanden,
+        'modell_vorhanden' => in_array($llm['anthropic_modell'], $vorhanden, true),
+        'modell_schnell_vorhanden' => in_array($llm['anthropic_modell_schnell'], $vorhanden, true),
+    ];
 }
