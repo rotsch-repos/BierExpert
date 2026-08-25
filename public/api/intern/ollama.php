@@ -52,18 +52,43 @@ function modellFragen(
     }
 
     $nachricht = ['role' => 'user', 'content' => $frage];
+    $nachrichten = [['role' => 'system', 'content' => $anweisung], $nachricht];
+
     if ($bildBase64 !== null) {
         // Ollama erwartet das Bild als base64 ohne den "data:"-Vorspann —
         // genau so, wie es das Frontend ohnehin schickt.
         $nachricht['images'] = [$bildBase64];
+
+        // Und hier steht die Anweisung ausnahmsweise IM Text der Frage statt
+        // in einer eigenen system-Nachricht.
+        //
+        // Das ist ein Umweg um einen Fehler in Ollama, nicht um einen in uns:
+        // Kommt zu einem Bild eine system-Nachricht dazu, bricht llama-server
+        // im Bildpfad mit "CUDA error: an illegal memory access was
+        // encountered" ab (ggml_cuda_op_mul, direkt nach "clip_ctx: CLIP
+        // using CUDA0 backend"). Der Prozess stirbt, Ollama startet ihn neu,
+        // und die nächste Anfrage läuft in dasselbe Messer.
+        //
+        // Gemessen am 25.08.2026 auf dieser Maschine (Ollama 0.32.15,
+        // Treiber 595.84, qwen3-vl:30b): 18 Anfragen mit system-Nachricht,
+        // 18 Abstürze. Dieselbe Anweisung im user-Text: 8 von 8 durch.
+        // Weder format noch num_ctx noch temperature noch keep_alive noch
+        // Bildformat, Bildgrösse oder Prompt-Länge ändern etwas daran —
+        // allein die Rolle entscheidet.
+        //
+        // Nur bei Bildern: Ohne Bild gibt es den Fehler nicht, und dort ist
+        // die system-Rolle das Richtige. Fällt der Fehler in einer künftigen
+        // Ollama-Fassung weg, gehört dieser Block ersatzlos gestrichen.
+        //
+        // Der Weg über Anthropic bleibt davon unberührt — dort ist die
+        // system-Rolle korrekt und funktioniert.
+        $nachricht['content'] = $anweisung . "\n\n" . $frage;
+        $nachrichten = [$nachricht];
     }
 
     $rumpf = [
         'model' => $schnell ? $llm['modell_schnell'] : $llm['modell'],
-        'messages' => [
-            ['role' => 'system', 'content' => $anweisung],
-            $nachricht,
-        ],
+        'messages' => $nachrichten,
         'stream' => false,
         // Das Schema wird serverseitig in eine Grammatik übersetzt, die das
         // Modell beim Erzeugen einschränkt. Es KANN dann nichts anderes

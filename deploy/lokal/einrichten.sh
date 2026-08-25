@@ -69,8 +69,11 @@ schritt_pakete() {
   fi
 
   tun "fehlen: ${fehlend[*]}"
+  # DEBIAN_FRONTEND: Ohne das hielte eine Rückfrage von dpkg den Lauf an —
+  # und zwar an einer Stelle, an der niemand ein Terminal hat, um sie zu
+  # beantworten.
   ausfuehren sudo apt-get update
-  ausfuehren sudo apt-get install -y "${fehlend[@]}"
+  ausfuehren sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "${fehlend[@]}"
 }
 
 # --------------------------------------------------------------------------
@@ -88,6 +91,27 @@ schritt_verzeichnisse() {
     ausfuehren sudo chown -R "$USER:$USER" "$BASIS"
     # Lesbar für alle: www-data muss die statischen Dateien ausliefern.
     ausfuehren sudo chmod 755 "$BASIS"
+  fi
+
+  # Ein eigenes Protokollverzeichnis, das roger gehört. Ohne das kann der
+  # FPM-Arbeiter — er läuft als roger — seine Fehlerdatei in /var/log nicht
+  # anlegen, PHP fällt still auf stderr zurück, und die Meldungen tauchen im
+  # nginx-Protokoll auf statt dort, wo man sie sucht.
+  #
+  # nginx schreibt hier ebenfalls hinein. Sein Hauptprozess läuft als root
+  # und legt seine Dateien selbst an; drwxrwxr-x mit Gruppe adm reicht beiden.
+  if [ -d /var/log/bierexpert ]; then
+    steht "/var/log/bierexpert"
+  else
+    ausfuehren sudo install -d -o "$USER" -g adm -m 2775 /var/log/bierexpert
+  fi
+
+  # Ohne Rotation wachsen Zugriffs- und Langsam-Protokoll unbegrenzt.
+  local dreh=/etc/logrotate.d/bierexpert
+  if [ -f "$dreh" ] && sudo cmp -s "$HIER/logrotate.conf" "$dreh"; then
+    steht "$dreh"
+  else
+    ausfuehren sudo install -m 644 -o root -g root "$HIER/logrotate.conf" "$dreh"
   fi
 }
 
