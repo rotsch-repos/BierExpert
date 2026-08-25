@@ -74,6 +74,7 @@ return [
         'anthropic_schluessel' => $(php_text "${ANTHROPIC_SCHLUESSEL:-}"),
         'anthropic_modell' => $(php_text "${ANTHROPIC_MODELL:-claude-opus-5}"),
         'anthropic_modell_schnell' => $(php_text "${ANTHROPIC_MODELL_SCHNELL:-claude-opus-5}"),
+        'anthropic_aufwand' => $(php_text "${ANTHROPIC_AUFWAND:-low}"),
         'endpunkt' => $(php_text "${LLM_ENDPUNKT:-}"),
         'schluessel' => $(php_text "${LLM_SCHLUESSEL:-}"),
         'modell' => $(php_text "${LLM_MODELL:-qwen3-vl:30b}"),

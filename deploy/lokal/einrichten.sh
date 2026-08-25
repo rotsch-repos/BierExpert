@@ -209,6 +209,7 @@ return [
         'anthropic_schluessel' => '',
         'anthropic_modell' => 'claude-opus-5',
         'anthropic_modell_schnell' => 'claude-opus-5',
+        'anthropic_aufwand' => 'low',
         'endpunkt' => 'http://localhost:11434',
         'schluessel' => '',
         'modell' => 'qwen3-vl:30b',

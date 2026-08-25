@@ -117,6 +117,7 @@ jobs:
           ANTHROPIC_SCHLUESSEL: ${{ secrets.ANTHROPIC_SCHLUESSEL }}
           ANTHROPIC_MODELL: ${{ vars.ANTHROPIC_MODELL }}
           ANTHROPIC_MODELL_SCHNELL: ${{ vars.ANTHROPIC_MODELL_SCHNELL }}
+          ANTHROPIC_AUFWAND: ${{ vars.ANTHROPIC_AUFWAND }}
         run: ./deploy/konfiguration.sh
 
       - name: Ausliefern

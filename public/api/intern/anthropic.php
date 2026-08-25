@@ -65,12 +65,12 @@ function anthropicFragen(
                 'type' => 'json_schema',
                 'schema' => schemaVerschaerft($schema),
             ],
-            // Niedriger Aufwand, mit Absicht: Diese Brücke existiert, WEIL
-            // vor dem Server eine Kappung bei rund einer halben Minute
-            // steht. Ablesen vom Etikett braucht keine lange Überlegung —
-            // und eine gründlichere, die in die Kappung läuft, ist keine
-            // bessere Antwort, sondern gar keine.
-            'effort' => 'low',
+            // Aus der Konfiguration, Vorgabe 'low'. Der ursprüngliche Grund
+            // für den festen Wert — vor dem Server stand eine Kappung bei
+            // rund einer halben Minute — ist mit dem Umzug auf die eigene
+            // Maschine weggefallen. Die Begründung steht bei der Einstellung
+            // in konfiguration.php.
+            'effort' => $llm['anthropic_aufwand'],
         ],
         'messages' => [
             ['role' => 'user', 'content' => $inhalt],

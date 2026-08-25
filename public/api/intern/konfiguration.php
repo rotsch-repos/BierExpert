@@ -77,6 +77,21 @@ function konfiguration(): array
             'anthropic_schluessel' => (string) ($roh['llm']['anthropic_schluessel'] ?? ''),
             'anthropic_modell' => (string) ($roh['llm']['anthropic_modell'] ?? 'claude-opus-5'),
             'anthropic_modell_schnell' => (string) ($roh['llm']['anthropic_modell_schnell'] ?? 'claude-opus-5'),
+            // Wie gründlich das Modell überlegen darf. Stand bis zum Umzug
+            // fest auf 'low', und zwar aus einem Grund, den es nicht mehr
+            // gibt: Hostpoint kappte die Anfrage nach rund einer halben
+            // Minute, und eine gründlichere Antwort, die in die Kappung
+            // läuft, ist keine bessere Antwort, sondern gar keine.
+            //
+            // Auf eigenem Server ist das eine Abwägung statt einer Not, und
+            // deshalb steht der Wert jetzt hier. Die Vorgabe bleibt 'low' —
+            // wer sie hebt, soll das entscheiden und nicht geschenkt
+            // bekommen. Unbekanntes fällt darauf zurück, statt die Anfrage
+            // beim ersten Scan mit einem 400 scheitern zu lassen.
+            'anthropic_aufwand' => in_array($roh['llm']['anthropic_aufwand'] ?? '',
+                ['low', 'medium', 'high', 'xhigh', 'max'], true)
+                ? $roh['llm']['anthropic_aufwand']
+                : 'low',
             // Nur für Tests umbiegbar — im Betrieb die echte API.
             'anthropic_basis' => rtrim((string) ($roh['llm']['anthropic_basis'] ?? 'https://api.anthropic.com'), '/'),
             'endpunkt' => rtrim((string) ($roh['llm']['endpunkt'] ?? ''), '/'),
