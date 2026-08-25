@@ -1,0 +1,16 @@
+# Vorlage — wird von deploy/lokal/einrichten.sh nach
+# /etc/systemd/system/ installiert.
+[Unit]
+Description=BierExpert alle fünf Minuten nach einem neuen Stand sehen
+
+[Timer]
+# Nach dem Hochfahren einmal nachsehen, danach im festen Takt. Gemessen ab
+# Ende des letzten Laufs, nicht ab Beginn: Sonst stapeln sich Läufe, wenn
+# ein Build einmal länger als fünf Minuten braucht.
+OnBootSec=2min
+OnUnitActiveSec=5min
+# Ein verpasster Lauf (Maschine war aus) wird nachgeholt.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

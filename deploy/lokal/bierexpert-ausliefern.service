@@ -1,0 +1,25 @@
+# Vorlage — wird von deploy/lokal/einrichten.sh nach
+# /etc/systemd/system/ installiert.
+#
+# Holt den Stand von main und schaltet ihn um, wenn sich etwas geändert hat.
+# Ein Lauf ohne Änderung ist ein git fetch und sonst nichts.
+[Unit]
+Description=BierExpert: neuen Stand von main holen und umschalten
+# Ohne Netz gäbe es nichts zu holen; ohne die beiden Dienste stünde der
+# neue Stand zwar da, aber niemand liefe darauf.
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=roger
+Group=roger
+ExecStart=/srv/bierexpert/repo/deploy/lokal/ausliefern.sh
+# Ein Build mit npm ci dauert; ohne Grenze hinge ein hängender Lauf für
+# immer und blockierte alle folgenden.
+TimeoutStartSec=1800
+# Damit npm und git ihre Zwischenspeicher finden.
+Environment=HOME=/home/roger
+
+[Install]
+WantedBy=multi-user.target
