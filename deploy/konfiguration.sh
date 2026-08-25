@@ -32,7 +32,12 @@ PFAD="${KONFIG_PFAD:-.bierexpert/konfiguration.php}"
 # Als Warnung und nicht als Abbruch: Ohne Modell steht die Seite trotzdem,
 # und ein rotes Deploy hälfe niemandem. Im Lauf ist die Warnung sichtbar,
 # statt in einer Zeile Protokoll unterzugehen.
-if [ -z "${LLM_ENDPUNKT:-}" ]; then
+ANBIETER="${LLM_ANBIETER:-ollama}"
+if [ "$ANBIETER" = "anthropic" ]; then
+  if [ -z "${ANTHROPIC_SCHLUESSEL:-}" ]; then
+    echo "::warning title=Kein Anthropic-Schlüssel hinterlegt::LLM_ANBIETER steht auf anthropic, aber das Secret ANTHROPIC_SCHLUESSEL fehlt — die Anwendung kann keine Etiketten auswerten."
+  fi
+elif [ -z "${LLM_ENDPUNKT:-}" ]; then
   echo "::warning title=Kein Sprachmodell hinterlegt::LLM_ENDPUNKT ist nicht hinterlegt — die Anwendung kann keine Etiketten auswerten. Zu hinterlegen unter Settings → Secrets and variables → Actions."
 fi
 
@@ -65,6 +70,10 @@ return [
         'passwort' => $(php_text "${DB_PASSWORT:-}"),
     ],
     'llm' => [
+        'anbieter' => $(php_text "${ANBIETER}"),
+        'anthropic_schluessel' => $(php_text "${ANTHROPIC_SCHLUESSEL:-}"),
+        'anthropic_modell' => $(php_text "${ANTHROPIC_MODELL:-claude-opus-5}"),
+        'anthropic_modell_schnell' => $(php_text "${ANTHROPIC_MODELL_SCHNELL:-claude-opus-5}"),
         'endpunkt' => $(php_text "${LLM_ENDPUNKT:-}"),
         'schluessel' => $(php_text "${LLM_SCHLUESSEL:-}"),
         'modell' => $(php_text "${LLM_MODELL:-qwen3-vl:30b}"),

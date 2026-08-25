@@ -87,15 +87,28 @@ nur der Schlüssel.
 | `DB_PASSWORT`      | Das Passwort des Datenbankbenutzers                         |
 | `LLM_ENDPUNKT`     | Adresse des Ollama-Dienstes, **ohne** `/api` am Ende         |
 | `LLM_SCHLUESSEL`   | Nur, wenn ein nginx davor einen Schlüssel verlangt           |
+| `ANTHROPIC_SCHLUESSEL` | Nur für die Anthropic-Brücke, siehe unten                |
 
 `LLM_ENDPUNKT` ist als Secret angelegt und nicht als Variable: Die Adresse
 zeigt auf den Rechner zu Hause, an dem das Modell hängt. Sie ist kein
 Passwort, aber sie gehört auch nicht in ein öffentliches Protokoll.
 
-Fehlt `LLM_ENDPUNKT`, überspringt das Deploy das Schreiben der Konfiguration
-mit einem Hinweis im Protokoll — die Seite wird trotzdem ausgeliefert. Fehlt
-`DB_PASSWORT`, läuft die Anwendung ohne Zwischenspeicher: jeder Scan geht ans
-Modell. Beides sind Zustände, keine Fehler, und werden als solche gemeldet.
+Die Konfiguration wird bei jedem Deploy geschrieben, auch wenn Werte fehlen.
+Fehlt die Adresse des Modells, bleibt das Feld leer und der Lauf trägt eine
+Warnung; fehlt `DB_PASSWORT`, läuft die Anwendung ohne Zwischenspeicher.
+Beides sind Zustände, keine Fehler, und werden als solche gemeldet.
+
+### Die Anthropic-Brücke
+
+Solange der Weg zum eigenen Modell durch fremde Zeitgrenzen führt (Hostpoint
+kappt Anfragen nach rund einer halben Minute, ein Scan mit kalter GPU liegt
+darüber), kann die Auswertung ersatzweise über die Anthropic-API laufen.
+Umschalten: Variable `LLM_ANBIETER` auf `anthropic`, Secret
+`ANTHROPIC_SCHLUESSEL` aus der Console (console.anthropic.com), Deploy
+anstossen. Zurück: `LLM_ANBIETER` löschen oder auf `ollama` stellen.
+Optional: `ANTHROPIC_MODELL` und `ANTHROPIC_MODELL_SCHNELL` als Variablen
+(Vorgabe jeweils `claude-opus-5`). Jeder Scan kostet dann Guthaben — im
+Bereich weniger Rappen — und das Foto verlässt den eigenen Rechnerverbund.
 
 Den privaten Schlüssel ausgeben:
 

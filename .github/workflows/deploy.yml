@@ -111,6 +111,12 @@ jobs:
           LLM_SCHLUESSEL: ${{ secrets.LLM_SCHLUESSEL }}
           LLM_MODELL: ${{ vars.LLM_MODELL }}
           LLM_MODELL_SCHNELL: ${{ vars.LLM_MODELL_SCHNELL }}
+          # Die Brücke über die Anthropic-API: LLM_ANBIETER=anthropic
+          # schaltet um, der Schlüssel kommt aus der Console.
+          LLM_ANBIETER: ${{ vars.LLM_ANBIETER }}
+          ANTHROPIC_SCHLUESSEL: ${{ secrets.ANTHROPIC_SCHLUESSEL }}
+          ANTHROPIC_MODELL: ${{ vars.ANTHROPIC_MODELL }}
+          ANTHROPIC_MODELL_SCHNELL: ${{ vars.ANTHROPIC_MODELL_SCHNELL }}
         run: ./deploy/konfiguration.sh
 
       - name: Ausliefern

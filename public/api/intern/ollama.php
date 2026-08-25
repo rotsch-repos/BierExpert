@@ -37,6 +37,12 @@ function modellFragen(
 ): array {
     $llm = konfiguration()['llm'];
 
+    // Die Weiche: Wer die Frage beantwortet, entscheidet die Konfiguration,
+    // nicht die Aufrufstelle. Für die Endpunkte ist beides dasselbe Modell.
+    if ($llm['anbieter'] === 'anthropic') {
+        return anthropicFragen($anweisung, $frage, $schema, $bildBase64, $schnell);
+    }
+
     if ($llm['endpunkt'] === '') {
         throw new BierFehler(
             'Es ist kein Sprachmodell hinterlegt.',

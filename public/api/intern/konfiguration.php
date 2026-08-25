@@ -67,6 +67,18 @@ function konfiguration(): array
             'passwort' => (string) ($roh['db']['passwort'] ?? ''),
         ],
         'llm' => [
+            // Wer antwortet: 'ollama' (das eigene Modell, Vorgabe) oder
+            // 'anthropic' — die Brücke, solange der Weg zum eigenen Modell
+            // durch fremde Zeitgrenzen führt. Unbekanntes fällt auf die
+            // Vorgabe zurück, statt beim ersten Scan zu überraschen.
+            'anbieter' => in_array($roh['llm']['anbieter'] ?? '', ['ollama', 'anthropic'], true)
+                ? $roh['llm']['anbieter']
+                : 'ollama',
+            'anthropic_schluessel' => (string) ($roh['llm']['anthropic_schluessel'] ?? ''),
+            'anthropic_modell' => (string) ($roh['llm']['anthropic_modell'] ?? 'claude-opus-5'),
+            'anthropic_modell_schnell' => (string) ($roh['llm']['anthropic_modell_schnell'] ?? 'claude-opus-5'),
+            // Nur für Tests umbiegbar — im Betrieb die echte API.
+            'anthropic_basis' => rtrim((string) ($roh['llm']['anthropic_basis'] ?? 'https://api.anthropic.com'), '/'),
             'endpunkt' => rtrim((string) ($roh['llm']['endpunkt'] ?? ''), '/'),
             'schluessel' => (string) ($roh['llm']['schluessel'] ?? ''),
             // Das große Modell mit Bildverständnis: zerlegt das Etikett und
