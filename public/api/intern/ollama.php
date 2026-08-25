@@ -70,11 +70,18 @@ function modellFragen(
         // und die nächste Anfrage läuft in dasselbe Messer.
         //
         // Gemessen am 25.08.2026 auf dieser Maschine (Ollama 0.32.15,
-        // Treiber 595.84, qwen3-vl:30b): 18 Anfragen mit system-Nachricht,
-        // 18 Abstürze. Dieselbe Anweisung im user-Text: 8 von 8 durch.
-        // Weder format noch num_ctx noch temperature noch keep_alive noch
-        // Bildformat, Bildgrösse oder Prompt-Länge ändern etwas daran —
-        // allein die Rolle entscheidet.
+        // Treiber 595.84, qwen3-vl:30b): mit dem Testetikett aus tests/
+        // 18 Anfragen mit system-Nachricht, 18 Abstürze — dieselbe Anweisung
+        // im user-Text: 8 von 8 durch. Weder format noch num_ctx noch
+        // temperature noch keep_alive noch Bildformat, Bildgrösse oder
+        // Prompt-Länge ändern etwas daran.
+        //
+        // Es hängt allerdings nicht an der Rolle allein: Mit einem anderen
+        // Foto lief dieselbe system-Variante 5 von 5 durch. Welches Bild den
+        // Fehler auslöst, liess sich nicht vorhersagen — die Rolle war die
+        // einzige Stellschraube, die ihn zuverlässig vermied. Genau deshalb
+        // steht hier ein Umweg und keine Bedingung: Ob dieses Bild betroffen
+        // wäre, weiss vorher niemand.
         //
         // Nur bei Bildern: Ohne Bild gibt es den Fehler nicht, und dort ist
         // die system-Rolle das Richtige. Fällt der Fehler in einer künftigen
