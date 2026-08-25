@@ -20,6 +20,8 @@ import type { AufbereitetesBild } from './bild';
 /** Zur Entwicklung gegen einen anderen Server: VITE_API_BASIS in .env.local. */
 const API_BASIS: string = import.meta.env['VITE_API_BASIS'] ?? '/api';
 
+import { schluesselLesen } from './schluessel';
+
 /**
  * Ein Aufruf darf nicht ewig hängen.
  *
@@ -72,9 +74,16 @@ async function fragen(pfad: string, bild: AufbereitetesBild): Promise<Record<str
 
   let antwort: Response;
   try {
+    // Liegt in der Kammer ein persönlicher Anthropic-Schlüssel, geht er
+    // als Kopfzeile mit — der Server reicht ihn nur durch.
+    const kopf: Record<string, string> = { 'Content-Type': 'application/json' };
+    const schluessel = schluesselLesen();
+    if (schluessel !== '') {
+      kopf['X-Anthropic-Schluessel'] = schluessel;
+    }
     antwort = await fetch(`${API_BASIS}/${pfad}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: kopf,
       body: JSON.stringify({ bild: bild.base64, typ: bild.medienTyp }),
       signal: abbruch.signal,
     });

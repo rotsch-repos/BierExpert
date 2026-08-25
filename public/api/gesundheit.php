@@ -109,7 +109,8 @@ $befund['modell'] = modellPruefen($konfiguration['llm']);
 
 // "bereit" heisst: Ein Scan käme durch. Ohne Zwischenspeicher geht das —
 // langsamer, aber vollständig. Ohne Modell geht es nicht.
-$befund['bereit'] = ($befund['modell']['erreichbar'] ?? false) === true;
+$befund['bereit'] = ($befund['modell']['erreichbar'] ?? false) === true
+    || ($befund['modell']['schluessel_je_anfrage'] ?? false) === true;
 
 antwortSenden(200, $befund);
 
@@ -201,8 +202,17 @@ function modellPruefen(array $llm): array
  */
 function anthropicPruefen(array $llm): array
 {
-    if ($llm['anthropic_schluessel'] === '') {
-        return ['erreichbar' => false, 'rat' => 'llm.anbieter steht auf "anthropic", aber es ist kein Schlüssel hinterlegt.'];
+    $schluessel = anthropicSchluessel($llm);
+    if ($schluessel === '') {
+        // Kein Server-Schlüssel ist im Browser-Modus kein Ausfall: Der
+        // Schlüssel reist je Anfrage mit. Prüfen lässt er sich von hier
+        // nur, wenn die Anfrage selbst einen mitbringt.
+        return [
+            'erreichbar' => false,
+            'schluessel_je_anfrage' => true,
+            'rat' => 'Der Schlüssel kommt je Anfrage aus dem Browser mit. Zum Prüfen: '
+                . 'diesen Endpunkt mit der Kopfzeile X-Anthropic-Schluessel aufrufen.',
+        ];
     }
 
     $griff = curl_init($llm['anthropic_basis'] . '/v1/models');
@@ -213,7 +223,7 @@ function anthropicPruefen(array $llm): array
     curl_setopt_array($griff, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => [
-            'x-api-key: ' . $llm['anthropic_schluessel'],
+            'x-api-key: ' . $schluessel,
             'anthropic-version: 2023-06-01',
         ],
         CURLOPT_TIMEOUT => 15,

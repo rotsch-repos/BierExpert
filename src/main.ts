@@ -5,6 +5,7 @@ import type { Bereich, Erweitert, Etikett, Etikettelement } from './schema';
 import { FAMILIEN, SORTEN, type Biersorte, type Familie } from './glossar';
 import { glasZeichnen } from './glas';
 import { ausEreignis, ausZwischenablage, ZwischenablageFehler } from './zwischenablage';
+import { kammerVerdrahten } from './schluessel';
 
 /* ---------------------------------------------------------------- Elemente */
 
@@ -971,3 +972,5 @@ function ausHash(): SichtName {
 
 window.addEventListener('hashchange', () => sichtZeigen(ausHash(), true));
 sichtZeigen(ausHash());
+
+kammerVerdrahten();
