@@ -23,6 +23,8 @@ export interface Beobachtung {
   /** Ist ein Bild mitgegangen? Ohne eines kann das Modell nichts lesen. */
   hatBild: boolean;
   medienTyp: string;
+  /** Der persönliche Anthropic-Schlüssel aus der Kopfzeile, falls einer mitging. */
+  schluessel: string | null;
 }
 
 export interface MockOptionen {
@@ -66,6 +68,7 @@ export async function apiVortaeuschen(page: Page, opt: MockOptionen = {}): Promi
       methode: route.request().method(),
       hatBild: typeof koerper.bild === 'string' && koerper.bild.length > 0,
       medienTyp: String(koerper.typ ?? ''),
+      schluessel: (await route.request().headerValue('x-anthropic-schluessel')) ?? null,
     });
 
     if (istErweitert) {
@@ -98,7 +101,7 @@ export async function apiVortaeuschen(page: Page, opt: MockOptionen = {}): Promi
   return gesehen;
 }
 
-/** Öffnet die Seite. Ohne Schlüsselkammer ist das alles, was es braucht. */
+/** Öffnet die Seite. */
 export async function seiteOeffnen(page: Page): Promise<void> {
   await page.goto('/');
 }

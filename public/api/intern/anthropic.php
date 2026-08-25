@@ -28,14 +28,16 @@ function anthropicFragen(
     bool $schnell,
 ): array {
     $llm = konfiguration()['llm'];
+    $schluessel = anthropicSchluessel($llm);
 
-    if ($llm['anthropic_schluessel'] === '') {
+    if ($schluessel === '') {
         throw new BierFehler(
-            'Es ist kein Anthropic-Schlüssel hinterlegt.',
-            'llm.anbieter steht auf "anthropic", aber llm.anthropic_schluessel ist leer. '
-                . 'Der Schlüssel kommt aus der Console (console.anthropic.com) und gehört '
-                . 'als Secret ANTHROPIC_SCHLUESSEL nach GitHub.',
-            503,
+            'Es ist kein Anthropic-Schlüssel da.',
+            'Trag deinen Schlüssel im Frontend unter "Eigener Anthropic-Schlüssel" ein — '
+                . 'er bleibt in deinem Browser und geht nur mit deinen Anfragen mit. '
+                . '(Alternativ serverseitig als Secret ANTHROPIC_SCHLUESSEL, dann zahlt '
+                . 'der Betreiber für alle.)',
+            401,
         );
     }
 
@@ -79,7 +81,7 @@ function anthropicFragen(
         $llm['anthropic_basis'] . '/v1/messages',
         $rumpf,
         $schnell ? $llm['zeitgrenze_schnell'] : $llm['zeitgrenze'],
-        $llm['anthropic_schluessel'],
+        $schluessel,
     );
 
     if (($antwort['stop_reason'] ?? '') === 'refusal') {
@@ -244,4 +246,23 @@ function anthropicStatusFehler(int $status, string $rumpf): BierFehler
             $gemeldet !== '' ? $gemeldet : kurz($rumpf),
         ),
     };
+}
+
+/**
+ * Welcher Schlüssel gilt: der persönliche aus der Anfrage vor dem des
+ * Servers.
+ *
+ * Der persönliche kommt als Kopfzeile aus dem Browser des Benutzers — so
+ * wertet genau eine Person auf ihre Rechnung aus, ohne dass der Schlüssel
+ * je auf dem Server liegt. Er wird nur durchgereicht, nie gespeichert und
+ * nie protokolliert. Der Server-Schlüssel bleibt als Betreiber-Variante
+ * bestehen: Ist er gesetzt, zahlt der Betreiber für alle.
+ */
+function anthropicSchluessel(array $llm): string
+{
+    $kopf = trim((string) ($_SERVER['HTTP_X_ANTHROPIC_SCHLUESSEL'] ?? ''));
+    if ($kopf !== '') {
+        return $kopf;
+    }
+    return $llm['anthropic_schluessel'];
 }
