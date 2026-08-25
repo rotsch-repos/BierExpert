@@ -72,10 +72,17 @@ function modellFragen(
             // antwortet auf eine Frage, die es nur noch halb kennt.
             'num_ctx' => $schnell ? 8192 : 16384,
         ],
-        // Hält das Modell nach dem Aufruf geladen. Der zweite Aufruf eines
-        // Scans trifft es dann warm an, statt erneut zu warten, bis
-        // dreissig Gigabyte im Speicher stehen.
-        'keep_alive' => '15m',
+        // Hält das Modell dauerhaft geladen (-1 = nie entladen). Die Karte
+        // fasst beide Modelle mit diesen Kontextgrössen nebeneinander.
+        //
+        // Nicht Bequemlichkeit, sondern Notwehr: Hostpoint beendet eine
+        // PHP-Anfrage nach rund einer Minute Wanddauer, hart und ohne
+        // Rücksicht auf set_time_limit. Ein kalter Scan — Modell erst von
+        // der Platte in den Grafikspeicher — liegt darüber, und der
+        // Besucher sieht einen nackten 502 statt einer Antwort. Warm bleibt
+        // jeder Scan weit unter der Minute. Gemessen am 25.08.: kalt 502,
+        // warm fehlerfrei.
+        'keep_alive' => -1,
     ];
 
     $antwort = anfragen(
