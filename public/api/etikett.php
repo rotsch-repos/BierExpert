@@ -41,6 +41,96 @@ if (stromGewuenscht()) {
 /** Vergangene Zeit in Millisekunden. */
 $dauer = static fn (): int => (int) ((hrtime(true) - $begonnen) / 1_000_000);
 
+/* --- Der Weg über den Nachschlage-Dienst ---------------------------------- */
+
+// Steht eine Dienstadresse in der Konfiguration, liegen Modell und
+// Bierdatenbank nicht hier, sondern auf der Workstation hinter dem Tunnel.
+// Diese Anlage dirigiert dann nur: Sie fragt dort "kenne ich das Bier?" und
+// bemüht die bezahlte API allein bei einem Fehlschlag.
+//
+// Der Rest der Datei bleibt der Weg für eine Anlage, die alles selbst hat.
+// Beide Wege enden in derselben Antwort — was der Leser bekommt, hängt
+// nicht davon ab, wo gerechnet wurde.
+if (dienstAktiv()) {
+    stromStufe('erkennung');
+    stromAktiv() && stromZeile(['stufe' => 'erkennung']);
+
+    $befund = dienstFragen('nachschlagen.php', [
+        'bild' => $bild->base64,
+        'typ' => $bild->medienTyp,
+    ]);
+
+    $gelesen = is_array($befund['gelesen'] ?? null) ? $befund['gelesen'] : [];
+
+    stromAktiv() && stromZeile([
+        'stufe' => 'erkannt',
+        'ist_bier' => (bool) ($gelesen['ist_bier'] ?? true),
+        'brauerei' => (string) ($gelesen['brauerei'] ?? ''),
+        'name' => (string) ($gelesen['name'] ?? ''),
+        'sicherheit' => (string) ($gelesen['sicherheit'] ?? ''),
+    ]);
+
+    if (($befund['gefunden'] ?? false) === true && is_array($befund['etikett'] ?? null)) {
+        // Auch hier durch die Reinigung: Die Zerlegung kam über das Netz,
+        // und was über das Netz kam, ist nicht deshalb wohlgeformt, weil es
+        // von der eigenen Gegenstelle stammt.
+        $etikett = etikettSaeubern($befund['etikett']);
+
+        stromAktiv() && stromZeile([
+            'stufe' => 'gefunden',
+            'quelle' => 'speicher',
+            'brauerei' => $etikett['brauerei'],
+            'name' => $etikett['name'],
+            'stil' => $etikett['stil'],
+        ]);
+
+        antwortSenden(200, [
+            'etikett' => $etikett,
+            'bilder' => bilderListe($befund['bilder'] ?? null),
+            'quelle' => 'speicher',
+            'dauer_ms' => $dauer(),
+        ]);
+    }
+
+    /* --- Fehlschlag: die bezahlte API, und danach zurückmelden ------------ */
+
+    stromStufe('auswertung');
+    stromAktiv() && stromZeile(['stufe' => 'auswertung', 'anbieter' => $llm['anbieter_tief']]);
+
+    $etikett = etikettSaeubern(
+        modellFragen(ETIKETT_ANWEISUNG, ETIKETT_FRAGE, schemaEtikett(), $bild->base64),
+    );
+
+    $bilder = [];
+
+    if ($etikett['erkannt']) {
+        // Zurückmelden, damit das Kompendium wächst. Scheitert es, ist die
+        // Auskunft an den Leser trotzdem vollständig — nur beim nächsten
+        // Foto desselben Biers fiele wieder ein bezahlter Aufruf an.
+        // Deshalb ins Log und nicht in die Antwort.
+        try {
+            $gemerkt = dienstFragen('merken.php', [
+                'schluessel' => (string) ($befund['schluessel'] ?? ''),
+                'pruefsumme' => (string) ($befund['pruefsumme'] ?? $bild->pruefsumme),
+                'etikett' => $etikett,
+                'modell' => $llm['anbieter_tief'] === 'anthropic'
+                    ? $llm['anthropic_modell']
+                    : $llm['modell'],
+            ]);
+            $bilder = bilderListe($gemerkt['bilder'] ?? null);
+        } catch (BierFehler $fehler) {
+            error_log('BierExpert: Zerlegung nicht zurückgemeldet — ' . $fehler->getMessage());
+        }
+    }
+
+    antwortSenden(200, [
+        'etikett' => $etikett,
+        'bilder' => $bilder,
+        'quelle' => 'modell',
+        'dauer_ms' => $dauer(),
+    ]);
+}
+
 /* --- Erste Stufe: ablesen ------------------------------------------------ */
 
 stromStufe('erkennung');
@@ -205,3 +295,30 @@ antwortSenden(200, [
     'quelle' => 'modell',
     'dauer_ms' => $dauer(),
 ]);
+
+/**
+ * Macht aus dem, was der Dienst als Bilderliste schickte, eine geprüfte.
+ *
+ * Adressen aus einer fremden Antwort landen unbesehen im href eines
+ * Bildes. Sie deshalb hier auf http(s) einzugrenzen kostet nichts und
+ * schliesst aus, dass eine verunglückte oder untergeschobene Antwort ein
+ * "javascript:" in die Seite trägt.
+ *
+ * @return list<string>
+ */
+function bilderListe(mixed $roh): array
+{
+    if (!is_array($roh)) {
+        return [];
+    }
+
+    $sauber = [];
+
+    foreach ($roh as $adresse) {
+        if (is_string($adresse) && preg_match('#^https?://#', $adresse) === 1) {
+            $sauber[] = $adresse;
+        }
+    }
+
+    return $sauber;
+}

@@ -140,6 +140,28 @@ function konfiguration(): array
             'zeitgrenze' => (int) ($roh['llm']['zeitgrenze'] ?? 300),
             'zeitgrenze_schnell' => (int) ($roh['llm']['zeitgrenze_schnell'] ?? 90),
         ],
+        // Der Nachschlage-Dienst auf der Workstation.
+        //
+        // Die Aufteilung dahinter: Die Seite bleibt beim Hoster, das Modell
+        // und die Bierdatenbank stehen zu Hause. Der Hoster dirigiert — er
+        // fragt für jedes Foto zuerst hier an ("kenne ich das Bier?") und
+        // wendet sich nur bei einem Fehlschlag an die bezahlte API.
+        //
+        // Bleibt 'adresse' leer, macht diese Anlage alles selbst. Das ist
+        // der Fall auf der Workstation, und es ist der Fall bei jeder
+        // Installation, die es einfach halten will — der Ablauf ist
+        // derselbe, nur ohne den Umweg über das Netz.
+        'dienst' => [
+            'adresse' => rtrim((string) ($roh['dienst']['adresse'] ?? ''), '/'),
+            // Gemeinsames Geheimnis zwischen Hoster und Workstation. Ohne
+            // es könnte jeder, der die Adresse kennt, die Grafikkarte
+            // beschäftigen und Einträge in die Bierdatenbank schreiben.
+            'schluessel' => (string) ($roh['dienst']['schluessel'] ?? ''),
+            // Grosszügig: Am anderen Ende hängt eine GPU, die auch kalt
+            // sein kann.
+            'zeitgrenze' => (int) ($roh['dienst']['zeitgrenze'] ?? 180),
+        ],
+
         // Die aufbewahrten Scanfotos.
         //
         // Leer heisst: nicht aufbewahren. Das ist die Vorgabe, und zwar

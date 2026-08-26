@@ -126,6 +126,48 @@ Gemessen am 26.08. auf der Workstation (RTX 6000 Ada, sechs Fotos):
   Anthropic. Beide Stufen laufen lokal.
 - **Unbekanntes Bier:** genau ein Aufruf, danach steht es in der Datenbank.
 
+### Die Aufteilung: Seite beim Hoster, Modell und Datenbank zu Hause
+
+Der Betrieb, auf den es hinausläuft:
+
+| Wo | Was |
+|---|---|
+| Hoster (bierexpert.de) | die Seite, und der Dirigent: `/api/etikett.php` |
+| Workstation (Tunnel) | `qwen3-vl:8b`, die Bierdatenbank, die aufbewahrten Fotos |
+
+Für jedes Foto fragt der Hoster zuerst zu Hause an — *kenne ich das Bier?* —
+und bemüht die bezahlte API nur bei einem Fehlschlag:
+
+```
+Browser -> Hoster /api/etikett.php
+              |
+              |  POST /api/nachschlagen.php   (Dienstschlüssel)
+              +--> Workstation: 8b liest ab -> Datenbank
+              |      Treffer  -> Zerlegung + Fotos zurück   ENDE, nichts bezahlt
+              |      Fehlschlag -> was gelesen wurde, zurück
+              |
+              +--> Anthropic zerlegt das Etikett            einmal je Bier
+              |
+              +--> POST /api/merken.php  -> Workstation legt es ab
+```
+
+Eingestellt über `dienst.adresse` und `dienst.schluessel`. Bleibt die
+Adresse leer, macht die Anlage alles selbst — so läuft die Workstation, und
+so läuft jede Installation, die es einfach halten will. Beide Wege enden in
+derselben Antwort.
+
+Warum nicht andersherum, also die Datenbank beim Hoster? Weil das Modell
+ohnehin zu Hause steht: Die erste Stufe braucht Bild **und** Datenbank, und
+eines von beiden über das Netz zu holen kostet bei **jedem** Scan eine
+Rundreise. So bleibt beides beisammen, und über das Netz geht nur, was
+am Ende auch angezeigt wird.
+
+`nachschlagen.php` und `merken.php` stehen hinter einem gemeinsamen
+Geheimnis (`Authorization: Bearer …`, verglichen mit `hash_equals`). Ohne
+das könnte jeder, der die Adresse des Tunnels kennt, die Grafikkarte
+beschäftigen und Einträge in die Bierdatenbank schreiben — hinter beidem
+hängt Geld.
+
 ### Die aufbewahrten Scanfotos
 
 Zu einem bekannten Bier kommen die Fotos mit, die andere davon gemacht

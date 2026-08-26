@@ -96,6 +96,13 @@ return [
         'zeitgrenze' => ${LLM_ZEITGRENZE:-300},
         'zeitgrenze_schnell' => ${LLM_ZEITGRENZE_SCHNELL:-90},
     ],
+    'dienst' => [
+        'adresse' => $(php_text "${DIENST_ADRESSE:-}"),
+        'schluessel' => $(php_text "${DIENST_SCHLUESSEL:-}"),
+    ],
+    // Beim Hoster werden keine Fotos aufbewahrt: Sie liegen dort, wo die
+    // Datenbank steht, und das ist die Workstation.
+    'bilder' => ['verzeichnis' => '', 'basis_url' => ''],
     'herkuenfte' => [],
     'speicher' => $([ -n "${DB_PASSWORT:-}" ] && echo true || echo false),
 ];
