@@ -269,6 +269,10 @@ return [
     'bilder' => [
         'verzeichnis' => '/srv/bierexpert/bilder',
         'basis_url' => $(php_text "${BILDER_BASIS_URL:-}"),
+        // Aus: Für die Anzeige genügen die Koordinaten im JSON, die der
+        // Browser zeichnet. Einschalten, wenn die Bilder zum Teilen
+        // gebraucht werden — dann aber sieben Kopien je Bier einplanen.
+        'einzeichnungen' => false,
     ],
     'herkuenfte' => [],
     'speicher' => true,

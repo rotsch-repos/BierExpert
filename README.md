@@ -194,7 +194,12 @@ PHP: Zwölf Bilder einer Galerie kosteten sonst zwölf Arbeiter aus dem Pool.
 Zu jedem Element eines Etiketts liegt ein fertiges Bild in der Datenbank:
 das Referenzfoto des Biers mit **genau einem** Rahmen darauf.
 
-Warum fertige Bilder und nicht Koordinaten, die der Browser überlegt: Ein
+**Voreingestellt aus** (`bilder.einzeichnungen`). Für die Anzeige braucht es
+sie nämlich nicht: Die Koordinaten reisen im JSON mit, und `kastenPruefen`
+im Frontend zeichnet den Rahmen daraus — auf dem Gerät des Betrachters, was
+diesen Server auch beim tausendsten Abruf nichts kostet.
+
+Einschalten lohnt sich, wenn die Bilder das Frontend **verlassen** sollen: Ein
 PNG ist selbsttragend. Es funktioniert in einer Nachricht, in einer Mail,
 in einer Linkvorschau und ohne JavaScript — ein Rahmen, den erst der
 Browser zeichnet, tut das nicht. Und es liegt am richtigen Ende der

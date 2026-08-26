@@ -102,7 +102,7 @@ return [
     ],
     // Beim Hoster werden keine Fotos aufbewahrt: Sie liegen dort, wo die
     // Datenbank steht, und das ist die Workstation.
-    'bilder' => ['verzeichnis' => '', 'basis_url' => ''],
+    'bilder' => ['verzeichnis' => '', 'basis_url' => '', 'einzeichnungen' => false],
     'herkuenfte' => [],
     'speicher' => $([ -n "${DB_PASSWORT:-}" ] && echo true || echo false),
 ];

@@ -173,6 +173,23 @@ function konfiguration(): array
             // sind. Getrennt vom Verzeichnis, weil der Betrachter im
             // Browser einer anderen Maschine sitzt als die Datei.
             'basis_url' => rtrim((string) ($roh['bilder']['basis_url'] ?? ''), '/'),
+            // Ob zu jedem Element ein fertig eingezeichnetes Bild entsteht.
+            //
+            // Voreingestellt aus, und zwar aus Rechenschaft gegenüber der
+            // Platte: Bei sieben Elementen liegen sieben fast identische
+            // Kopien desselben Fotos herum — beim Testetikett das
+            // Fünfeinhalbfache, bei einem echten Foto rund 10 MB je Bier.
+            //
+            // Für die Anzeige braucht es sie nicht: Die Koordinaten reisen
+            // im JSON mit, und der Browser des Betrachters zeichnet den
+            // Rahmen daraus. Das kostet diesen Server nichts, auch nicht
+            // beim tausendsten Abruf.
+            //
+            // Einschalten lohnt sich, wenn die Bilder das Frontend
+            // VERLASSEN sollen: zum Teilen, für eine Vorschau in einer
+            // Nachricht, für einen Steckbrief als PDF. Ein fertiges PNG ist
+            // selbsttragend, ein Rahmen aus CSS nicht.
+            'einzeichnungen' => (bool) ($roh['bilder']['einzeichnungen'] ?? false),
         ],
 
         // Zusätzlich erlaubte Herkünfte für Anfragen aus dem Browser.

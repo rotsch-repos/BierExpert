@@ -116,7 +116,7 @@ function rahmenZeichnen(string $quelle, array $bereich, string $ziel): bool
  */
 function elementbilderErzeugen(int $bierId, string $bildDatei, array $elemente): void
 {
-    if ($bildDatei === '' || !bilderAufbewahren()) {
+    if ($bildDatei === '' || !bilderAufbewahren() || !konfiguration()['bilder']['einzeichnungen']) {
         return;
     }
 
