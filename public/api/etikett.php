@@ -63,6 +63,11 @@ $schluessel = $erkennung['ist_bier']
     ? schluesselBilden($erkennung['brauerei'], $erkennung['name'])
     : '';
 
+// Das Foto aufbewahren — gleich ob das Bier bekannt ist. Gerade die Fotos
+// zu noch unbekannten Bieren zählen: Sobald das grosse Modell das Etikett
+// zerlegt hat, gehören sie zu diesem Bier.
+$bildDatei = bildAblegen($bild);
+
 /* --- Nachschlagen -------------------------------------------------------- */
 
 $treffer = bierLaden($schluessel);
@@ -106,6 +111,7 @@ if ($treffer !== null && $treffer['etikett']['elemente'] !== []) {
 
     scanProtokollieren([
         'pruefsumme' => $bild->pruefsumme,
+        'bild_datei' => $bildDatei,
         'bier_id' => $treffer['id'],
         'aus_speicher' => true,
         'gelesen_brauerei' => $erkennung['brauerei'],
@@ -117,6 +123,8 @@ if ($treffer !== null && $treffer['etikett']['elemente'] !== []) {
 
     antwortSenden(200, [
         'etikett' => $etikett,
+        // Die Fotos, die andere von diesem Bier gemacht haben.
+        'bilder' => bilderZuBier($treffer['id']),
         'quelle' => 'speicher',
         'dauer_ms' => $dauer(),
     ]);
@@ -177,6 +185,7 @@ if ($etikett['erkannt']) {
 
 scanProtokollieren([
     'pruefsumme' => $bild->pruefsumme,
+    'bild_datei' => $bildDatei,
     'bier_id' => $bierId,
     'aus_speicher' => false,
     'gelesen_brauerei' => $erkennung['brauerei'],
@@ -189,6 +198,10 @@ scanProtokollieren([
 
 antwortSenden(200, [
     'etikett' => $etikett,
+    // Beim ersten Fund ist das gerade hochgeladene Foto das einzige — und
+    // genau deshalb steht es hier: Ohne diese Zeile bliebe die Galerie
+    // ausgerechnet beim ersten Mal leer.
+    'bilder' => $bierId === null ? [] : bilderZuBier($bierId),
     'quelle' => 'modell',
     'dauer_ms' => $dauer(),
 ]);

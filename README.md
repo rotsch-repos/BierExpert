@@ -126,6 +126,27 @@ Gemessen am 26.08. auf der Workstation (RTX 6000 Ada, sechs Fotos):
   Anthropic. Beide Stufen laufen lokal.
 - **Unbekanntes Bier:** genau ein Aufruf, danach steht es in der Datenbank.
 
+### Die aufbewahrten Scanfotos
+
+Zu einem bekannten Bier kommen die Fotos mit, die andere davon gemacht
+haben. Das kehrt eine frühere Entscheidung um: Die `scans`-Tabelle führte
+ausdrücklich keine Bilddaten, weil der Zweck damals Buchführung war.
+
+Was von der Entscheidung bleibt: **Die IP-Adresse wird weiterhin nicht
+gespeichert.** Ein Foto einer Bierflasche sagt nichts über den, der es
+aufgenommen hat, solange nicht danebensteht, woher es kam.
+
+Aufbewahrt wird nur, wenn `bilder.verzeichnis` gesetzt ist — die Vorgabe
+ist leer. Es sind fremde Fotos, und wer sie sammelt, soll das entscheiden
+und nicht geschenkt bekommen.
+
+Die Dateien liegen neben der Datenbank, nicht darin: Ein Etikettfoto wiegt
+mehrere Megabyte und blähte als BLOB jede Abfrage auf, die es gar nicht
+braucht. Der Dateiname ist die Prüfsumme des Bildes — damit liegt dasselbe
+Foto nie zweimal auf der Platte, und der Name verrät nichts über seinen
+Ursprung. Ausgeliefert werden sie von nginx unter `/bilder/`, nicht durch
+PHP: Zwölf Bilder einer Galerie kosteten sonst zwölf Arbeiter aus dem Pool.
+
 ### Kein Nachdenken beim Ablesen
 
 Für die schnelle Stufe wird das Nachdenken des Modells ausdrücklich

@@ -407,6 +407,35 @@ body::before {
   background: var(--secondary);
 }
 
+/* Die Fotos, die schon einmal von diesem Bier gemacht wurden.
+   Eine Reihe, die seitlich wandert statt umzubrechen: Sie ist Beiwerk und
+   soll das Blatt nicht in die Länge ziehen, auch nicht bei zwölf Aufnahmen. */
+.galerie {
+  margin: var(--space-4) 0 0;
+}
+
+.galerie-titel {
+  margin: 0 0 var(--space-2);
+  color: var(--on-surface-variant);
+}
+
+.galerie-reihe {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-1);
+}
+
+.galerie-bild {
+  flex: 0 0 auto;
+  width: 5rem;
+  height: 5rem;
+  object-fit: cover;
+  border-radius: var(--rounded-sm);
+  border: 1px solid var(--outline-variant);
+  background: var(--surface-container-low);
+}
+
 .chronik-hinweis {
   margin: var(--space-4) 0 0;
   padding: var(--space-2);

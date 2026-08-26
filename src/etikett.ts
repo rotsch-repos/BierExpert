@@ -48,6 +48,13 @@ export interface Auswertung<T> {
   /** 'speicher': schon einmal ausgewertet. 'modell': frisch gelesen. */
   quelle: 'speicher' | 'modell';
   dauerMs: number;
+  /**
+   * Fotos, die andere von diesem Bier gemacht haben.
+   *
+   * Leer, wenn der Server keine aufbewahrt — das ist die Vorgabe, denn es
+   * sind fremde Fotos.
+   */
+  bilder: string[];
 }
 
 /**
@@ -326,7 +333,23 @@ function auspacken<T>(
     daten: geprueft.data,
     quelle: antwort['quelle'] === 'speicher' ? 'speicher' : 'modell',
     dauerMs: typeof antwort['dauer_ms'] === 'number' ? antwort['dauer_ms'] : 0,
+    bilder: bilderLesen(antwort['bilder']),
   };
+}
+
+/**
+ * Schält die Bilderadressen aus der Antwort.
+ *
+ * Geprüft wird auf http(s), obwohl der Server dasselbe schon tut: Diese
+ * Adressen landen unbesehen im src eines Bildes, und die Prüfung an der
+ * Stelle zu wiederholen, an der sie benutzt werden, kostet nichts.
+ */
+function bilderLesen(roh: unknown): string[] {
+  if (!Array.isArray(roh)) return [];
+
+  return roh.filter(
+    (adresse): adresse is string => typeof adresse === 'string' && /^https?:\/\//.test(adresse),
+  );
 }
 
 /** Kürzt Fremdtext auf ein Mass, das in eine Fehlermeldung passt. */

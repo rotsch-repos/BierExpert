@@ -55,6 +55,7 @@ require_once __DIR__ . '/ollama.php';
 require_once __DIR__ . '/anthropic.php';
 require_once __DIR__ . '/datenbank.php';
 require_once __DIR__ . '/speicher.php';
+require_once __DIR__ . '/bilder.php';
 require_once __DIR__ . '/ablauf.php';
 
 /*

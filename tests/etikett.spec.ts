@@ -42,6 +42,33 @@ test.describe('Etikett auswerten', () => {
     await expect(page.locator('.abzeichen').first()).toContainText('Zuordnung');
   });
 
+  test('zeigt die aufbewahrten Fotos zu einem bekannten Bier', async ({ page }) => {
+    await apiVortaeuschen(page, {
+      ausSpeicher: true,
+      bilder: ['https://bilder.example/eins.png', 'https://bilder.example/zwei.png'],
+    });
+    await seiteOeffnen(page);
+    await bisBefund(page);
+
+    const bilder = page.locator('.galerie-bild');
+    await expect(bilder).toHaveCount(2);
+
+    // Der Name des Biers und nicht "Foto": Ein Vorleseprogramm soll sagen,
+    // wovon das Bild ist, nicht dass es eines ist.
+    await expect(bilder.first()).toHaveAttribute('alt', /Klosterbräu/);
+    await expect(page.locator('.galerie-titel')).toContainText('2 Mal fotografiert');
+  });
+
+  test('lässt die Galerie weg, wenn der Server keine Fotos aufbewahrt', async ({ page }) => {
+    // Die Vorgabe: Es sind fremde Fotos, und wer sie sammelt, soll das
+    // entscheiden. Ohne Fotos darf auch keine leere Überschrift entstehen.
+    await apiVortaeuschen(page);
+    await seiteOeffnen(page);
+    await bisBefund(page);
+
+    await expect(page.locator('.galerie')).toHaveCount(0);
+  });
+
   test('zerlegt das Etikett in einzelne Elemente', async ({ page }) => {
     await apiVortaeuschen(page);
     await seiteOeffnen(page);

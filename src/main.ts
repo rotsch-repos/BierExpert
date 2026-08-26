@@ -347,6 +347,10 @@ function befundZeichnen(auswertung: Auswertung<Etikett>, erweitert: Promise<Erwe
 
   blatt.append(reiterBauen(e, erweitert, laufNummer));
 
+  if (auswertung.bilder.length > 0) {
+    blatt.append(galerieBauen(auswertung.bilder, e.name));
+  }
+
   if (e.hinweis.trim()) {
     const hinweis = document.createElement('p');
     hinweis.className = 'chronik-hinweis body-md';
@@ -355,6 +359,46 @@ function befundZeichnen(auswertung: Auswertung<Etikett>, erweitert: Promise<Erwe
   }
 
   ziel.append(blatt);
+}
+
+/**
+ * Die Fotos, die schon einmal von diesem Bier gemacht wurden.
+ *
+ * Nur was der Server mitschickt — er bewahrt Scanfotos nur auf, wenn er
+ * ausdrücklich dazu eingerichtet ist. Kommt nichts, entsteht hier auch
+ * keine leere Überschrift.
+ */
+function galerieBauen(bilder: readonly string[], bier: string): HTMLElement {
+  const huelle = document.createElement('section');
+  huelle.className = 'galerie';
+
+  const titel = document.createElement('h4');
+  titel.className = 'galerie-titel label-caps';
+  titel.textContent =
+    bilder.length === 1 ? 'Schon einmal fotografiert' : `Schon ${bilder.length} Mal fotografiert`;
+
+  const reihe = document.createElement('div');
+  reihe.className = 'galerie-reihe';
+
+  for (const adresse of bilder) {
+    const bildchen = document.createElement('img');
+    bildchen.className = 'galerie-bild';
+    bildchen.src = adresse;
+    // Der Name des Biers und nicht "Foto": Ein Vorleseprogramm soll sagen,
+    // wovon das Bild ist, nicht dass es eines ist.
+    bildchen.alt = `Aufnahme von ${bier}`;
+    // Die Galerie steht weit unten im Blatt; sie zu laden, bevor jemand
+    // dorthin scrollt, verzögert nur das, was oben steht.
+    bildchen.loading = 'lazy';
+    bildchen.decoding = 'async';
+    // Ein Foto, das nicht mehr da ist, soll keine kaputte Ecke hinterlassen.
+    bildchen.addEventListener('error', () => bildchen.remove());
+    reihe.append(bildchen);
+  }
+
+  huelle.append(titel, reihe);
+
+  return huelle;
 }
 
 /* --------------------------------------------------------------- Reiter */

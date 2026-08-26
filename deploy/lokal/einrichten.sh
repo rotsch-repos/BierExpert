@@ -93,6 +93,16 @@ schritt_verzeichnisse() {
     ausfuehren sudo chmod 755 "$BASIS"
   fi
 
+  # Die aufbewahrten Scanfotos liegen NEBEN den Ständen, nicht in einem.
+  # Läge das Verzeichnis unter releases/<sha>, verschwände die halbe
+  # Galerie beim nächsten Aufräumen der alten Stände.
+  if [ -d "$BASIS/bilder" ]; then
+    steht "$BASIS/bilder"
+  else
+    ausfuehren mkdir -p "$BASIS/bilder"
+    ausfuehren chmod 755 "$BASIS/bilder"
+  fi
+
   # Ein eigenes Protokollverzeichnis, das roger gehört. Ohne das kann der
   # FPM-Arbeiter — er läuft als roger — seine Fehlerdatei in /var/log nicht
   # anlegen, PHP fällt still auf stderr zurück, und die Meldungen tauchen im
@@ -246,6 +256,19 @@ return [
         // bevor überhaupt gerechnet wird.
         'zeitgrenze' => 600,
         'zeitgrenze_schnell' => 180,
+    ],
+    // Diese Anlage IST der Nachschlage-Dienst, sie fragt also niemanden
+    // sonst. Der Schlüssel ist trotzdem nötig: Ohne ihn weist
+    // nachschlagen.php jede Anfrage ab — auch die vom Hoster.
+    'dienst' => [
+        'adresse' => '',
+        'schluessel' => $(php_text "${DIENST_SCHLUESSEL:-}"),
+    ],
+    // Die aufbewahrten Scanfotos. Ausserhalb des Symlinks auf den aktuellen
+    // Stand, sonst verschwänden sie bei jedem Deploy.
+    'bilder' => [
+        'verzeichnis' => '/srv/bierexpert/bilder',
+        'basis_url' => $(php_text "${BILDER_BASIS_URL:-}"),
     ],
     'herkuenfte' => [],
     'speicher' => true,

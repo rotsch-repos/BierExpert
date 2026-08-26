@@ -36,6 +36,8 @@ export interface MockOptionen {
   etikett?: Record<string, unknown>;
   /** Antwortet, als käme die Auskunft aus dem Zwischenspeicher. */
   ausSpeicher?: boolean;
+  /** Fotos, die der Server zu diesem Bier aufbewahrt hat. */
+  bilder?: string[];
 }
 
 /**
@@ -56,6 +58,13 @@ export async function apiVortaeuschen(page: Page, opt: MockOptionen = {}): Promi
 
   await page.route('https://fonts.googleapis.com/**', (route: Route) =>
     route.fulfill({ status: 200, contentType: 'text/css', body: '' }),
+  );
+
+  // Die Galeriebilder wirklich ausliefern. Ohne das schlüge das Laden fehl,
+  // und die Anwendung entfernt ein Bild, das nicht kommt — der Test prüfte
+  // dann eine Reihe, die es zu Recht nicht mehr gibt.
+  await page.route('https://bilder.example/**', (route: Route) =>
+    route.fulfill({ status: 200, contentType: 'image/png', body: readFileSync(BILD) }),
   );
 
   await page.route('**/api/*.php', async (route: Route) => {
@@ -93,7 +102,12 @@ export async function apiVortaeuschen(page: Page, opt: MockOptionen = {}): Promi
       body: JSON.stringify(
         istErweitert
           ? { erweitert: ERWEITERT, quelle, dauer_ms: 1200 }
-          : { etikett: opt.etikett ?? ETIKETT, quelle, dauer_ms: 3400 },
+          : {
+              etikett: opt.etikett ?? ETIKETT,
+              bilder: opt.bilder ?? [],
+              quelle,
+              dauer_ms: 3400,
+            },
       ),
     });
   });

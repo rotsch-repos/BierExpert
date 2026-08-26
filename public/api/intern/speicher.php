@@ -331,11 +331,14 @@ function scanProtokollieren(array $eintrag): void
     try {
         $db->prepare(
             'INSERT INTO scans
-                 (bild_pruefsumme, bier_id, aus_speicher, gelesen_brauerei, gelesen_name,
-                  sicherheit, hinweis, dauer_ms, modell, fehler)
-             VALUES (?,?,?,?,?,?,?,?,?,?)',
+                 (bild_pruefsumme, bild_datei, bier_id, aus_speicher, gelesen_brauerei,
+                  gelesen_name, sicherheit, hinweis, dauer_ms, modell, fehler)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)',
         )->execute([
             (string) $eintrag['pruefsumme'],
+            // Leer, wenn keine Fotos aufbewahrt werden — dann bleibt die
+            // Zeile genau das, was sie vorher war: Buchführung ohne Bild.
+            $eintrag['bild_datei'] ?? null,
             $eintrag['bier_id'] ?? null,
             ($eintrag['aus_speicher'] ?? false) ? 1 : 0,
             gekuerzt($eintrag['gelesen_brauerei'] ?? '', 190),

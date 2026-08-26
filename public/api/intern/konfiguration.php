@@ -140,6 +140,19 @@ function konfiguration(): array
             'zeitgrenze' => (int) ($roh['llm']['zeitgrenze'] ?? 300),
             'zeitgrenze_schnell' => (int) ($roh['llm']['zeitgrenze_schnell'] ?? 90),
         ],
+        // Die aufbewahrten Scanfotos.
+        //
+        // Leer heisst: nicht aufbewahren. Das ist die Vorgabe, und zwar
+        // nicht aus Bequemlichkeit — es sind fremde Fotos, und wer sie
+        // sammelt, soll das entscheiden und nicht geschenkt bekommen.
+        'bilder' => [
+            'verzeichnis' => rtrim((string) ($roh['bilder']['verzeichnis'] ?? ''), '/'),
+            // Unter welcher Adresse dieselben Dateien von aussen zu sehen
+            // sind. Getrennt vom Verzeichnis, weil der Betrachter im
+            // Browser einer anderen Maschine sitzt als die Datei.
+            'basis_url' => rtrim((string) ($roh['bilder']['basis_url'] ?? ''), '/'),
+        ],
+
         // Zusätzlich erlaubte Herkünfte für Anfragen aus dem Browser.
         // Im Regelfall leer: Seite und API liegen unter derselben Adresse,
         // dann fragt der Browser gar nicht erst nach. Für die Entwicklung
