@@ -313,6 +313,34 @@ bezogen auf das ganze Bild). Weil das an die API geschickte Bild dasselbe
 herunterskalierte Bild ist wie die Vorschau im DOM, lassen sich die Werte
 direkt als Prozent auf das angezeigte Foto legen.
 
+#### Ein anderes Foto derselben Flasche
+
+Weil kein Bereich gespeichert wird, muss die Verortung bei jedem Treffer neu
+laufen — und die Frage ist, ob sie das trägt. Gemessen am 26.08. mit
+`qwen3-vl:8b` am Rothaus-Etikett, vier Elemente, vier Fassungen desselben
+Fotos (unverändert, gespiegelt, 12° gedreht, auf das Etikett beschnitten):
+
+- **Die Zuordnung hält.** Im gespiegelten Foto wandert die Frau in Tracht von
+  x=0,39 nach 0,52 und der Tannenzapfen von 0,47 nach 0,39 — sie tauschen die
+  Seiten. Das Modell liest also den Inhalt und ruft keine gemerkte Position
+  ab. In keiner Fassung sass ein Rahmen auf dem falschen Element.
+- **Je grösser das Etikett im Bild, desto enger der Rahmen.** Auf dem
+  beschnittenen Foto sitzen Frau und Schriftzug punktgenau; auf dem
+  Gesamtbild der Flasche sind sie zu schmal — der Zapfen-Rahmen erwischt
+  einen von drei Zapfen.
+- **Die eine Schwachstelle:** Ein Element, das auf diesem Foto gar nicht zu
+  sehen ist, bekommt gelegentlich trotzdem einen Rahmen. Auf dem
+  beschnittenen Foto fehlt die Goldkapsel, das Modell legte oben einen
+  flachen Streifen hin, statt "gefunden" auf false zu setzen. Der Code
+  respektiert das Feld — er kann nur nichts dagegen tun, wenn das Modell es
+  falsch setzt.
+
+Die Zuordnung selbst ist gegen Verrutschen gesichert: Ein Eintrag wird
+vorrangig über seine **Bezeichnung** dem Element zugeordnet; der Rückfall auf
+die Reihenfolge greift nur, wenn zu jedem vorgegebenen Element genau ein
+Eintrag zurückkam. Sonst verschöbe ein ausgelassener Eintrag alles Folgende
+um eins — und ein falscher Rahmen ist schlimmer als ein fehlender.
+
 Die Koordinaten sind eine Schätzung des Modells und werden deshalb geprüft,
 bevor sie gezeichnet werden (`kastenPruefen` in `src/main.ts`): Werte außerhalb
 des Bildes werden hineingeklemmt, und ein Bereich, der danach zu klein ist,
