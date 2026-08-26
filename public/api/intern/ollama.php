@@ -39,6 +39,7 @@ function modellFragen(
 
     // Die Weiche: Wer die Frage beantwortet, entscheidet die Konfiguration,
     // nicht die Aufrufstelle. Für die Endpunkte ist beides dasselbe Modell.
+    //
     if ($llm['anbieter'] === 'anthropic') {
         return anthropicFragen($anweisung, $frage, $schema, $bildBase64, $schnell);
     }
@@ -110,6 +111,24 @@ function modellFragen(
             // antwortet auf eine Frage, die es nur noch halb kennt.
             'num_ctx' => $schnell ? 8192 : 16384,
         ],
+        // Kein Nachdenken bei der schnellen Stufe.
+        //
+        // Gemessen am 26.08. mit qwen3-vl:8b: Bei eingeschaltetem Denken
+        // erzeugte das Modell auf einem Foto mit mehreren Etiketten 6889
+        // Token, davon KEIN einziges als Antwort — es zerredete sich in
+        // "Wait, ... Wait, ..." bis zur Token-Grenze und lieferte einen
+        // leeren Inhalt nach 68 Sekunden. Drei von drei Versuchen, immer
+        // gleich. Mit abgeschaltetem Denken: dieselbe Aufgabe in 0,5 s mit
+        // 43 Token.
+        //
+        // Und das ist kein Zufall dieses einen Bildes, sondern liegt in der
+        // Aufgabe: Abgeschrieben werden soll, was auf dem Etikett steht.
+        // Dabei gibt es nichts zu überlegen — jeder Gedankengang ist eine
+        // Gelegenheit, sich von dem zu entfernen, was dasteht.
+        //
+        // Nur für die schnelle Stufe. Die Zerlegung eines unbekannten
+        // Etiketts ist eine Deutungsaufgabe; dort trägt Nachdenken bei.
+        'think' => $schnell ? false : null,
         // Hält das Modell dauerhaft geladen (-1 = nie entladen). Die Karte
         // fasst beide Modelle mit diesen Kontextgrössen nebeneinander.
         //
@@ -123,6 +142,12 @@ function modellFragen(
         'keep_alive' => -1,
     ];
 
+    // Bei der tiefen Stufe gehört das Feld gar nicht erst in die Anfrage:
+    // Ein ausdrückliches null hiesse "kein Denken", nicht "wie voreingestellt".
+    if ($rumpf['think'] === null) {
+        unset($rumpf['think']);
+    }
+
     $antwort = anfragen(
         $llm['endpunkt'] . '/api/chat',
         $rumpf,
@@ -132,10 +157,33 @@ function modellFragen(
 
     $inhalt = $antwort['message']['content'] ?? null;
 
+    // Ollama 0.32 legt die Antwort bei abgeschaltetem Denken in "thinking"
+    // statt in "content" — der Inhalt ist richtig, nur das Fach ist falsch.
+    // Beobachtet mit qwen3-vl:8b: content leer, thinking enthält das
+    // vollständige Schema-JSON, done_reason "stop", 43 Token.
+    //
+    // Ein Fehler der Vorlage, nicht der Anwendung, und vermutlich in einer
+    // künftigen Fassung erledigt. Bis dahin: nachsehen, statt einen
+    // brauchbaren Fund wegzuwerfen. Fällt der Fehler weg, verhält sich
+    // dieser Zweig von selbst still — dann ist "content" gefüllt.
     if (!is_string($inhalt) || trim($inhalt) === '') {
+        $gedanke = $antwort['message']['thinking'] ?? null;
+        if (is_string($gedanke) && str_contains($gedanke, '{')) {
+            $inhalt = $gedanke;
+        }
+    }
+
+    if (!is_string($inhalt) || trim($inhalt) === '') {
+        // Die häufigste Ursache steht zuerst, weil sie sich beheben lässt:
+        // Das Modell hat die Token-Grenze mit Nachdenken aufgebraucht.
+        $grund = $antwort['done_reason'] ?? '';
         throw new BierFehler(
             'Das Sprachmodell hat nichts geantwortet.',
-            'Läuft das Modell "' . $rumpf['model'] . '"? Ein "ollama list" auf dem Server zeigt es.',
+            $grund === 'length'
+                ? 'Das Modell hat die Token-Grenze erreicht, bevor es geantwortet hat — '
+                    . 'es hat sich im Nachdenken verloren. Bei der schnellen Stufe ist '
+                    . 'Denken abgeschaltet; meldet die tiefe Stufe das, gehört sie auch dort aus.'
+                : 'Läuft das Modell "' . $rumpf['model'] . '"? Ein "ollama list" auf dem Server zeigt es.',
         );
     }
 
