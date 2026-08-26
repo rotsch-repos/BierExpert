@@ -40,7 +40,14 @@ function modellFragen(
     // Die Weiche: Wer die Frage beantwortet, entscheidet die Konfiguration,
     // nicht die Aufrufstelle. Für die Endpunkte ist beides dasselbe Modell.
     //
-    if ($llm['anbieter'] === 'anthropic') {
+    // Entschieden wird je Stufe, nicht je Anlage. Das erlaubt die Mischung,
+    // auf die der Betrieb hier hinausläuft: das Ablesen beim eigenen kleinen
+    // Modell — es läuft bei jedem Scan und kostet dort nichts —, das
+    // Zerlegen eines noch unbekannten Etiketts bei Anthropic, wo es einmal
+    // je Bier anfällt und dafür stimmt.
+    $anbieter = $schnell ? $llm['anbieter_schnell'] : $llm['anbieter_tief'];
+
+    if ($anbieter === 'anthropic') {
         return anthropicFragen($anweisung, $frage, $schema, $bildBase64, $schnell);
     }
 

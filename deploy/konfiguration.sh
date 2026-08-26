@@ -33,12 +33,24 @@ PFAD="${KONFIG_PFAD:-.bierexpert/konfiguration.php}"
 # und ein rotes Deploy hälfe niemandem. Im Lauf ist die Warnung sichtbar,
 # statt in einer Zeile Protokoll unterzugehen.
 ANBIETER="${LLM_ANBIETER:-ollama}"
-if [ "$ANBIETER" = "anthropic" ]; then
+# Je Stufe, mit LLM_ANBIETER als Rückfall für beide. Wer nichts Weiteres
+# hinterlegt, bekommt also unverändert das bisherige Verhalten.
+ANBIETER_SCHNELL="${LLM_ANBIETER_SCHNELL:-$ANBIETER}"
+ANBIETER_TIEF="${LLM_ANBIETER_TIEF:-$ANBIETER}"
+
+# Geprüft wird, was die beiden Stufen ZUSAMMEN brauchen. Bei der Mischung
+# ist das beides: der eigene Endpunkt fürs Ablesen UND der Schlüssel fürs
+# Zerlegen. Nur eines davon zu prüfen liesse genau die halbe Anlage
+# unbemerkt fehlen.
+if [ "$ANBIETER_SCHNELL" = "anthropic" ] || [ "$ANBIETER_TIEF" = "anthropic" ]; then
   if [ -z "${ANTHROPIC_SCHLUESSEL:-}" ]; then
-    echo "::warning title=Kein Anthropic-Schlüssel hinterlegt::LLM_ANBIETER steht auf anthropic, aber das Secret ANTHROPIC_SCHLUESSEL fehlt — die Anwendung kann keine Etiketten auswerten."
+    echo "::warning title=Kein Anthropic-Schlüssel hinterlegt::Eine Stufe steht auf anthropic, aber das Secret ANTHROPIC_SCHLUESSEL fehlt. Das ist nur dann in Ordnung, wenn die Besucher ihren eigenen Schlüssel im Browser hinterlegen — sonst kann die Anwendung unbekannte Etiketten nicht auswerten."
   fi
-elif [ -z "${LLM_ENDPUNKT:-}" ]; then
-  echo "::warning title=Kein Sprachmodell hinterlegt::LLM_ENDPUNKT ist nicht hinterlegt — die Anwendung kann keine Etiketten auswerten. Zu hinterlegen unter Settings → Secrets and variables → Actions."
+fi
+if [ "$ANBIETER_SCHNELL" = "ollama" ] || [ "$ANBIETER_TIEF" = "ollama" ]; then
+  if [ -z "${LLM_ENDPUNKT:-}" ]; then
+    echo "::warning title=Kein Sprachmodell hinterlegt::LLM_ENDPUNKT ist nicht hinterlegt — die Anwendung kann keine Etiketten auswerten. Zu hinterlegen unter Settings → Secrets and variables → Actions."
+  fi
 fi
 
 if [ -z "${DB_PASSWORT:-}" ]; then
@@ -71,6 +83,8 @@ return [
     ],
     'llm' => [
         'anbieter' => $(php_text "${ANBIETER}"),
+        'anbieter_schnell' => $(php_text "${ANBIETER_SCHNELL}"),
+        'anbieter_tief' => $(php_text "${ANBIETER_TIEF}"),
         'anthropic_schluessel' => $(php_text "${ANTHROPIC_SCHLUESSEL:-}"),
         'anthropic_modell' => $(php_text "${ANTHROPIC_MODELL:-claude-opus-5}"),
         'anthropic_modell_schnell' => $(php_text "${ANTHROPIC_MODELL_SCHNELL:-claude-opus-5}"),

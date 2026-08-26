@@ -40,14 +40,20 @@ try {
         'gefunden' => true,
         'datenbank_angaben' => $konfiguration['db']['host'] !== '' && $konfiguration['db']['name'] !== '',
         'datenbank_passwort' => $konfiguration['db']['passwort'] !== '',
-        'anbieter' => $konfiguration['llm']['anbieter'],
-        'modell_endpunkt' => $konfiguration['llm']['anbieter'] === 'anthropic'
+        // Je Stufe getrennt, weil sie bei der Mischung auseinanderfallen:
+        // Ablesen beim eigenen Modell, Zerlegen bei Anthropic. Ein einzelner
+        // Anbietername verschwiege im Betrieb genau die Hälfte.
+        'anbieter_schnell' => $konfiguration['llm']['anbieter_schnell'],
+        'anbieter_tief' => $konfiguration['llm']['anbieter_tief'],
+        'modell_endpunkt' => $konfiguration['llm']['anbieter_tief'] === 'anthropic'
+            || $konfiguration['llm']['anbieter_schnell'] === 'anthropic'
             ? $konfiguration['llm']['anthropic_schluessel'] !== ''
+                || $konfiguration['llm']['endpunkt'] !== ''
             : $konfiguration['llm']['endpunkt'] !== '',
-        'modell' => $konfiguration['llm']['anbieter'] === 'anthropic'
+        'modell' => $konfiguration['llm']['anbieter_tief'] === 'anthropic'
             ? $konfiguration['llm']['anthropic_modell']
             : $konfiguration['llm']['modell'],
-        'modell_schnell' => $konfiguration['llm']['anbieter'] === 'anthropic'
+        'modell_schnell' => $konfiguration['llm']['anbieter_schnell'] === 'anthropic'
             ? $konfiguration['llm']['anthropic_modell_schnell']
             : $konfiguration['llm']['modell_schnell'],
         'zwischenspeicher' => $konfiguration['speicher'],
@@ -105,21 +111,50 @@ if (!$konfiguration['speicher']) {
 // /api/tags listet die geladenen Modelle. Ein leichter Aufruf: Er sagt, ob
 // Ollama antwortet UND ob das eingetragene Modell überhaupt vorhanden ist —
 // die beiden Fragen, die sonst erst beim ersten Scan auffallen.
-$befund['modell'] = modellPruefen($konfiguration['llm']);
+// Beide Stufen einzeln prüfen. Bei der Mischung hängen sie an
+// verschiedenen Anbietern, und dann ist "das Modell antwortet" keine
+// Auskunft mehr, sondern eine Verwechslungsgefahr: Das eine kann laufen,
+// während das andere fehlt.
+$befund['modell'] = [
+    'schnell' => stufePruefen($konfiguration['llm'], true),
+    'tief' => stufePruefen($konfiguration['llm'], false),
+];
+
+/** Taugt eine Stufe für einen Scan? */
+$stufeBereit = static fn (array $b): bool => ($b['erreichbar'] ?? false) === true
+    || ($b['schluessel_je_anfrage'] ?? false) === true;
 
 // "bereit" heisst: Ein Scan käme durch. Ohne Zwischenspeicher geht das —
 // langsamer, aber vollständig. Ohne Modell geht es nicht.
-$befund['bereit'] = ($befund['modell']['erreichbar'] ?? false) === true
-    || ($befund['modell']['schluessel_je_anfrage'] ?? false) === true;
+//
+// UND, nicht ODER: Ein Scan durchläuft immer die schnelle Stufe, und bei
+// einem unbekannten Bier zusätzlich die tiefe. Fehlt eine davon, ist die
+// Anwendung nicht bereit — auch wenn die andere tadellos antwortet.
+$befund['bereit'] = $stufeBereit($befund['modell']['schnell'])
+    && $stufeBereit($befund['modell']['tief']);
 
 antwortSenden(200, $befund);
 
 
-function modellPruefen(array $llm): array
+/**
+ * Prüft die eine Stufe: Wer beantwortet sie, und antwortet der auch?
+ *
+ * @param bool $schnell true für das Ablesen, false für die Zerlegung
+ */
+function stufePruefen(array $llm, bool $schnell): array
 {
-    if ($llm['anbieter'] === 'anthropic') {
-        return anthropicPruefen($llm);
+    $anbieter = $schnell ? $llm['anbieter_schnell'] : $llm['anbieter_tief'];
+
+    if ($anbieter === 'anthropic') {
+        return ['anbieter' => 'anthropic'] + anthropicPruefen($llm);
     }
+
+    return ['anbieter' => 'ollama'] + ollamaPruefen($llm, $schnell);
+}
+
+
+function ollamaPruefen(array $llm, bool $schnell): array
+{
 
     if ($llm['endpunkt'] === '') {
         return ['erreichbar' => false, 'rat' => 'In der Konfiguration fehlt llm.endpunkt.'];
@@ -172,7 +207,13 @@ function modellPruefen(array $llm): array
 
     // Ollama nennt Modelle mit Markierung ("qwen3-vl:30b"). Eingetragen ist
     // womöglich nur der Name. Beides soll als vorhanden gelten.
-    foreach (['modell', 'modell_schnell'] as $welches) {
+    //
+    // Geprüft wird nur das Modell DIESER Stufe. Geht die Zerlegung zu
+    // Anthropic, muss das grosse Modell hier gar nicht mehr liegen — es
+    // dann als Mangel zu melden, schickte auf eine Suche nach einem Fehler,
+    // den es nicht gibt. (Und es hielte dazu an, 20 GB Grafikspeicher für
+    // etwas freizuhalten, das nie aufgerufen wird.)
+    foreach ($schnell ? ['modell_schnell'] : ['modell'] as $welches) {
         $gesucht = $llm[$welches];
         $gefunden = false;
         foreach ($vorhanden as $name) {
@@ -184,8 +225,10 @@ function modellPruefen(array $llm): array
         $befund[$welches . '_vorhanden'] = $gefunden;
     }
 
-    if (!$befund['modell_vorhanden'] || !$befund['modell_schnell_vorhanden']) {
-        $befund['rat'] = 'Ein eingetragenes Modell ist auf dem Server nicht vorhanden. '
+    $schluesselDerStufe = $schnell ? 'modell_schnell_vorhanden' : 'modell_vorhanden';
+
+    if (!$befund[$schluesselDerStufe]) {
+        $befund['rat'] = 'Das eingetragene Modell ist auf dem Server nicht vorhanden. '
             . 'Entweder mit "ollama pull" holen oder in der Konfiguration einen der '
             . 'vorhandenen Namen eintragen.';
     }

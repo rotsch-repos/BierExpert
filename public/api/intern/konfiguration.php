@@ -59,6 +59,11 @@ function konfiguration(): array
         );
     }
 
+    // Der Anbieter für beide Stufen, sofern nichts Feineres dasteht.
+    // Unbekanntes fällt auf die Vorgabe zurück, statt beim ersten Scan zu
+    // überraschen.
+    $anbieter = anbieterOder($roh['llm']['anbieter'] ?? null, 'ollama');
+
     $konfiguration = [
         'db' => [
             'host' => (string) ($roh['db']['host'] ?? ''),
@@ -71,9 +76,27 @@ function konfiguration(): array
             // 'anthropic' — die Brücke, solange der Weg zum eigenen Modell
             // durch fremde Zeitgrenzen führt. Unbekanntes fällt auf die
             // Vorgabe zurück, statt beim ersten Scan zu überraschen.
-            'anbieter' => in_array($roh['llm']['anbieter'] ?? '', ['ollama', 'anthropic'], true)
-                ? $roh['llm']['anbieter']
-                : 'ollama',
+            'anbieter' => $anbieter,
+            // Und jetzt je Stufe getrennt — das ist der Kern des Betriebs
+            // auf eigener Hardware.
+            //
+            // Die beiden Stufen stellen gegensätzliche Ansprüche. Das
+            // Ablesen von Brauerei und Name ist eine Fleissaufgabe: Sie
+            // fällt bei JEDEM Scan an, auch bei den tausend schon bekannten
+            // Bieren, und muss deshalb schnell und umsonst sein. Das
+            // Zerlegen eines unbekannten Etiketts fällt genau EINMAL je Bier
+            // an, danach nie wieder — dort zählt Genauigkeit, und dort ist
+            // ein bezahlter Aufruf gut angelegt.
+            //
+            // Deshalb: Ablesen lokal, Zerlegen bei Anthropic. Der Preis
+            // richtet sich damit nicht nach der Zahl der Scans, sondern nach
+            // der Zahl der noch unbekannten Biere — und die geht mit jedem
+            // Fund zurück.
+            //
+            // Fehlt der Eintrag, gilt weiter llm.anbieter für beide Stufen.
+            // Bestehende Installationen ändern ihr Verhalten also nicht.
+            'anbieter_schnell' => anbieterOder($roh['llm']['anbieter_schnell'] ?? null, $anbieter),
+            'anbieter_tief' => anbieterOder($roh['llm']['anbieter_tief'] ?? null, $anbieter),
             'anthropic_schluessel' => (string) ($roh['llm']['anthropic_schluessel'] ?? ''),
             'anthropic_modell' => (string) ($roh['llm']['anthropic_modell'] ?? 'claude-opus-5'),
             'anthropic_modell_schnell' => (string) ($roh['llm']['anthropic_modell_schnell'] ?? 'claude-opus-5'),
@@ -173,4 +196,15 @@ function heimatverzeichnis(): string
             . 'Konfiguration stattdessen direkt: SetEnv BIEREXPERT_KONFIG /pfad/zur/konfiguration.php',
         503,
     );
+}
+
+/**
+ * Prüft einen Anbieternamen und gibt sonst den Rückfall.
+ *
+ * Ein Tippfehler in der Konfiguration soll den Scan nicht mit einem
+ * unverständlichen Fehler abbrechen lassen, sondern beim Bekannten bleiben.
+ */
+function anbieterOder(mixed $wert, string $rueckfall): string
+{
+    return in_array($wert, ['ollama', 'anthropic'], true) ? $wert : $rueckfall;
 }

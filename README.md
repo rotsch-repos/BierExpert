@@ -98,6 +98,58 @@ Die beiden gehen systematisch auseinander. Auf dem Etikett steht
 Stil aus seinem Wissen. Unter dieser Fassung abgelegt wäre der Eintrag beim
 nächsten Foto unauffindbar.
 
+### Wer welche Stufe beantwortet
+
+Die beiden Stufen dürfen an verschiedenen Modellen hängen, und im
+Eigenbetrieb tun sie das auch:
+
+| Stufe | Anbieter | Warum dort |
+|---|---|---|
+| Ablesen | eigenes `qwen3-vl:8b` | läuft bei **jedem** Foto, muss umsonst und schnell sein |
+| Zerlegen | Anthropic | läuft **einmal je Bier**, entscheidet dauerhaft, was jeder Leser sieht |
+
+Eingestellt wird das über `llm.anbieter_schnell` und `llm.anbieter_tief`
+(Rückfall auf `llm.anbieter`, wenn sie fehlen — bestehende Anlagen ändern ihr
+Verhalten also nicht).
+
+Der Gedanke dahinter ist eine Frage der Häufigkeit, nicht der Qualität. Ein
+Modell, das ein Etikett gut zerlegt, ist teuer; eines, das „Rothaus" von
+„Augustiner" unterscheidet, muss es nicht sein. Weil die erste Aufgabe
+einmal je Bier anfällt und die zweite bei jedem einzelnen Scan, wächst die
+Rechnung nicht mit der Nutzung, sondern mit der Zahl der noch unbekannten
+Biere — und die wird mit jedem Fund kleiner. Am Ende steht ein Kompendium,
+das nur noch selten von einem neuen Etikett überrascht wird.
+
+Gemessen am 26.08. auf der Workstation (RTX 6000 Ada, sechs Fotos):
+
+- **Bekanntes Bier:** 3,5–4,1 s für den ganzen Scan, **kein** Aufruf bei
+  Anthropic. Beide Stufen laufen lokal.
+- **Unbekanntes Bier:** genau ein Aufruf, danach steht es in der Datenbank.
+
+### Kein Nachdenken beim Ablesen
+
+Für die schnelle Stufe wird das Nachdenken des Modells ausdrücklich
+abgeschaltet (`think: false`). Das ist keine Feinabstimmung, sondern behebt
+einen Ausfall.
+
+Mit eingeschaltetem Denken erzeugte `qwen3-vl:8b` auf schwierigen Fotos bis
+zu 6900 Token, **ohne ein einziges davon als Antwort auszugeben**: Es
+zerredete sich in „Wait, … Wait, …" bis zur Token-Grenze und lieferte nach
+rund 65 Sekunden einen leeren Inhalt. Über sechs Fotos zu je fünf Läufen:
+
+| | Antworten | Median | Schlüssel stabil |
+|---|---|---|---|
+| Denken an | 21/30 | 2 200 ms | 5 von 6 Fotos |
+| Denken aus | **30/30** | **390 ms** | **6 von 6** |
+
+Es ist auf jeder Achse besser, und das liegt in der Aufgabe: Abgeschrieben
+werden soll, was auf dem Etikett steht. Dabei gibt es nichts zu überlegen —
+jeder Gedankengang ist nur eine Gelegenheit, sich von dem zu entfernen, was
+dasteht.
+
+Für die tiefe Stufe bleibt das Denken an: Ein unbekanntes Etikett zu deuten
+ist genau die Aufgabe, bei der es beiträgt.
+
 ### Die Fundstellen auf dem Foto
 
 Jedes Element trägt einen `bereich` in normalisierten Koordinaten (0 bis 1,

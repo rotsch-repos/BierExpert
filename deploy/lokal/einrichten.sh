@@ -205,13 +205,40 @@ return [
         'passwort' => $(php_text "$DB_PASSWORT"),
     ],
     'llm' => [
-        'anbieter' => 'ollama',
+        // Die Mischung, und der Grund dafür in einem Satz: Das Ablesen
+        // fällt bei JEDEM Scan an, das Zerlegen genau einmal je Bier.
+        //
+        // Ablesen — welches Bier ist das? — beim eigenen kleinen Modell.
+        // Es läuft bei jedem Foto, auch bei den längst bekannten Bieren,
+        // und kostet hier nichts ausser Strom. Gemessen am 26.08. mit
+        // qwen3-vl:8b: 1,5-5 s je Foto, warm.
+        'anbieter_schnell' => 'ollama',
+        // Zerlegen eines noch UNBEKANNTEN Etiketts bei Anthropic. Das
+        // eigene 30b hat diese Aufgabe nicht sauber hinbekommen (es hat
+        // Wappen und Zahlen erfunden, wo es nichts lesen konnte), und es
+        // ist genau die Aufgabe, bei der ein Fehler dauerhaft in der
+        // Datenbank landet und von dort jedem Leser vorgesetzt wird.
+        //
+        // Bezahlt wird damit nicht je Scan, sondern je neuem Bier — und
+        // das ist die ganze Rechnung hinter dem Zwischenspeicher: Das
+        // Kompendium wächst, die unbekannten Etiketten werden seltener,
+        // die Kosten gehen gegen null, ohne dass die Anwendung langsamer
+        // wird.
+        'anbieter_tief' => 'anthropic',
+        // Bleibt leer: Der Schlüssel reist je Anfrage aus dem Browser mit
+        // (im Frontend unter "Eigener Anthropic-Schlüssel"). Wer stattdessen
+        // will, dass der Betreiber für alle zahlt, trägt ihn hier ein —
+        // dann aber bitte im Bewusstsein, dass jedes unbekannte Etikett
+        // eines beliebigen Besuchers auf diese Rechnung geht.
         'anthropic_schluessel' => '',
         'anthropic_modell' => 'claude-opus-5',
         'anthropic_modell_schnell' => 'claude-opus-5',
         'anthropic_aufwand' => 'low',
         'endpunkt' => 'http://localhost:11434',
         'schluessel' => '',
+        // Bleibt eingetragen, wird aber im Regelfall nicht mehr aufgerufen:
+        // Wer 'anbieter_tief' auf 'ollama' zurückstellt, bekommt damit
+        // wieder den reinen Eigenbetrieb, ohne sonst etwas zu ändern.
         'modell' => 'qwen3-vl:30b',
         'modell_schnell' => 'qwen3-vl:8b',
         // Grosszügig: Auf dieser Maschine ist ein kaltes Modell der
