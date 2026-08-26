@@ -142,6 +142,12 @@ function etikettSaeubern(array $roh): array
             'beschreibung' => text($element['beschreibung'] ?? ''),
             'bedeutung' => text($element['bedeutung'] ?? ''),
             'bereich' => bereich(is_array($element['bereich'] ?? null) ? $element['bereich'] : []),
+            // Die fertige Einzeichnung, sofern eine gespeichert ist. Sie
+            // kommt aus der Datenbank und nicht vom Modell — geprüft wird
+            // sie trotzdem: Diese Adresse landet unbesehen im src eines
+            // Bildes, und der Weg hierher führt bei der Aufteilung über
+            // das Netz.
+            'bild' => bildAdresse($element['bild'] ?? null),
         ];
     }
 
@@ -227,4 +233,10 @@ function sicherheit(mixed $wert): string
 {
     $t = strtolower(text($wert));
     return in_array($t, ['hoch', 'mittel', 'niedrig'], true) ? $t : 'mittel';
+}
+
+/** Eine Bildadresse, oder nichts. */
+function bildAdresse(mixed $wert): string
+{
+    return is_string($wert) && preg_match('#^https?://#', $wert) === 1 ? $wert : '';
 }

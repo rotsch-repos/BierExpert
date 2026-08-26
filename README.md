@@ -189,6 +189,35 @@ Foto nie zweimal auf der Platte, und der Name verrät nichts über seinen
 Ursprung. Ausgeliefert werden sie von nginx unter `/bilder/`, nicht durch
 PHP: Zwölf Bilder einer Galerie kosteten sonst zwölf Arbeiter aus dem Pool.
 
+### Die Einzeichnungen je Element
+
+Zu jedem Element eines Etiketts liegt ein fertiges Bild in der Datenbank:
+das Referenzfoto des Biers mit **genau einem** Rahmen darauf.
+
+Warum fertige Bilder und nicht Koordinaten, die der Browser überlegt: Ein
+PNG ist selbsttragend. Es funktioniert in einer Nachricht, in einer Mail,
+in einer Linkvorschau und ohne JavaScript — ein Rahmen, den erst der
+Browser zeichnet, tut das nicht. Und es liegt am richtigen Ende der
+Rechnung: gerendert **einmal je Bier**, ausgeliefert beliebig oft als
+statische Datei, die ein CDN übernehmen kann, ohne diesen Server zu fragen.
+
+Der Preis steht in Zahlen: Beim Testetikett wiegt das Foto 47 KB, die fünf
+Einzeichnungen zusammen 210 KB — das Fünfeinhalbfache. Bei einem echten
+Foto von 1,5 MB und sieben Elementen sind es rund 10 MB je Bier. Das ist
+der bewusste Tausch: Platz auf der Platte gegen Rechenarbeit beim Abruf.
+
+Gezeichnet wird mit **ffmpeg** (`drawbox`) und nicht mit GD — auf der
+Workstation gibt es weder GD noch Imagick noch ImageMagick. Die Bildmasse
+liefert `getimagesize()`, das ohne GD auskommt. Der Prozessstart von ~50 ms
+je Bild trifft den einen Scan, der ein Bier neu aufnimmt, und nie wieder.
+
+Im Frontend ersetzen diese Bilder **nicht** die Markierung auf dem eigenen
+Foto: Wer gerade eine Flasche fotografiert hat, sieht seinen eigenen Rahmen
+auf seinem eigenen Bild, live gezeichnet. Die gespeicherte Einzeichnung
+springt nur ein, wenn die Verortung ein Element auf diesem Foto **nicht**
+gefunden hat — dann steht darunter „Frühere Aufnahme", damit niemand eine
+fremde Flasche für seine eigene hält.
+
 ### Kein Nachdenken beim Ablesen
 
 Für die schnelle Stufe wird das Nachdenken des Modells ausdrücklich

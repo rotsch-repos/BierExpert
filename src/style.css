@@ -407,6 +407,13 @@ body::before {
   background: var(--secondary);
 }
 
+/* Der Vermerk unter einer Einzeichnung, die von einer FRÜHEREN Aufnahme
+   stammt. Ohne ihn hielte der Leser eine fremde Flasche für seine eigene. */
+.element-ersatz {
+  margin: var(--space-1) 0 0;
+  color: var(--on-surface-variant);
+}
+
 /* Die Fotos, die schon einmal von diesem Bier gemacht wurden.
    Eine Reihe, die seitlich wandert statt umzubrechen: Sie ist Beiwerk und
    soll das Blatt nicht in die Länge ziehen, auch nicht bei zwölf Aufnahmen. */

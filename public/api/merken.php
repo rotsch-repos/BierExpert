@@ -60,7 +60,13 @@ if ($kennung === null) {
 // Das Foto, das eben noch zu keinem Bier gehörte, gehört jetzt zu diesem.
 // Ohne diesen Nachtrag bliebe die Galerie eines neu aufgenommenen Biers
 // ausgerechnet beim ersten Mal leer.
-bildZuBierNachtragen((string) ($rumpf['pruefsumme'] ?? ''), $kennung);
+$pruefsumme = (string) ($rumpf['pruefsumme'] ?? '');
+bildZuBierNachtragen($pruefsumme, $kennung);
+
+// Die Einzeichnungen: je Element das Referenzfoto mit einem Rahmen darum.
+// Genau hier und nirgends sonst — es ist der eine Augenblick, in dem ein
+// Bier neu in die Datenbank kommt. Alles Spätere liest nur noch.
+elementbilderErzeugen($kennung, bildDateiZuPruefsumme($pruefsumme), $etikett['elemente']);
 
 antwortSenden(200, [
     'id' => $kennung,

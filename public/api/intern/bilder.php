@@ -159,6 +159,40 @@ function bildZuBierNachtragen(string $pruefsumme, int $bierId): void
     }
 }
 
+/**
+ * Der Dateiname zu einer Prüfsumme, sofern das Foto aufbewahrt wurde.
+ *
+ * Gebraucht beim Zurückmelden über das Netz: Der Dirigent kennt die
+ * Prüfsumme, aber nicht den Dateinamen — der entsteht hier.
+ */
+function bildDateiZuPruefsumme(string $pruefsumme): string
+{
+    if ($pruefsumme === '' || !bilderAufbewahren()) {
+        return '';
+    }
+
+    $db = datenbank();
+    if ($db === null) {
+        return '';
+    }
+
+    try {
+        $abfrage = $db->prepare(
+            'SELECT bild_datei FROM scans
+              WHERE bild_pruefsumme = ? AND bild_datei IS NOT NULL AND bild_datei <> \'\'
+              ORDER BY id DESC LIMIT 1',
+        );
+        $abfrage->execute([$pruefsumme]);
+        $name = $abfrage->fetchColumn();
+    } catch (PDOException $fehler) {
+        error_log('BierExpert: Dateiname nicht ermittelbar — ' . $fehler->getMessage());
+
+        return '';
+    }
+
+    return is_string($name) ? $name : '';
+}
+
 /** Die Dateiendung zum Medientyp. */
 function bildEndung(string $medienTyp): string
 {

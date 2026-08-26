@@ -60,12 +60,14 @@ function bierLaden(string $schluessel): ?array
         $id = (int) $zeile['id'];
 
         $elementeAbfrage = $db->prepare(
-            'SELECT bezeichnung, position, beschreibung, bedeutung
+            'SELECT bezeichnung, position, beschreibung, bedeutung, bild_datei
                FROM etikett_elemente
               WHERE bier_id = ?
               ORDER BY reihenfolge',
         );
         $elementeAbfrage->execute([$id]);
+
+        $bilderBasis = konfiguration()['bilder']['basis_url'];
 
         $elemente = [];
         foreach ($elementeAbfrage->fetchAll() as $element) {
@@ -74,6 +76,14 @@ function bierLaden(string $schluessel): ?array
                 'position' => (string) ($element['position'] ?? ''),
                 'beschreibung' => (string) ($element['beschreibung'] ?? ''),
                 'bedeutung' => (string) ($element['bedeutung'] ?? ''),
+                // Das fertig eingezeichnete Bild: das Referenzfoto dieses
+                // Biers mit genau einem Rahmen — dem um dieses Element.
+                // Leer, wenn keine Bilder aufbewahrt werden oder das
+                // Element auf dem Referenzfoto nicht zu sehen war.
+                'bild' => $bilderBasis !== '' && is_string($element['bild_datei'] ?? null)
+                    && $element['bild_datei'] !== ''
+                        ? $bilderBasis . '/' . rawurlencode((string) $element['bild_datei'])
+                        : '',
                 // Wird von der Verortung überschrieben. Ein Rahmen dieser
                 // Grösse wird vom Frontend verworfen — dort steht dann keine
                 // falsche Markierung, sondern gar keine.
@@ -381,4 +391,27 @@ function gekuerzt(mixed $wert, int $zeichen): string
 {
     $text = trim((string) $wert);
     return mb_substr($text, 0, $zeichen, 'UTF-8');
+}
+
+/**
+ * Vermerkt das eingezeichnete Bild bei einem Element.
+ *
+ * Über die Reihenfolge und nicht über die Bezeichnung: Zwei Elemente eines
+ * Etiketts dürfen gleich heissen ("Ähre" links und rechts), die Reihenfolge
+ * ist dagegen eindeutig und steht ohnehin in der Zeile.
+ */
+function elementbildEintragen(int $bierId, int $reihenfolge, string $datei): void
+{
+    $db = datenbank();
+    if ($db === null) {
+        return;
+    }
+
+    try {
+        $db->prepare(
+            'UPDATE etikett_elemente SET bild_datei = ? WHERE bier_id = ? AND reihenfolge = ?',
+        )->execute([gekuerzt($datei, 190), $bierId, $reihenfolge]);
+    } catch (PDOException $fehler) {
+        error_log('BierExpert: Elementbild nicht vermerkt — ' . $fehler->getMessage());
+    }
 }

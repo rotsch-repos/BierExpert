@@ -69,6 +69,37 @@ test.describe('Etikett auswerten', () => {
     await expect(page.locator('.galerie')).toHaveCount(0);
   });
 
+  test('zeigt die gespeicherte Einzeichnung, wenn das Element auf diesem Foto fehlt', async ({
+    page,
+  }) => {
+    // Ein Element, das die Verortung auf DIESEM Foto nicht gefunden hat:
+    // verdeckt, angeschnitten oder abgewandt. Ohne Bereich gäbe es sonst
+    // nur das eigene Foto ohne jede Markierung.
+    const elemente = (ETIKETT['elemente'] as Record<string, unknown>[]).map((el, i) =>
+      i === 0
+        ? {
+            ...el,
+            bereich: { x: 0, y: 0, breite: 0, hoehe: 0 },
+            bild: 'https://bilder.example/element-1.png',
+          }
+        : el,
+    );
+
+    await apiVortaeuschen(page, {
+      ausSpeicher: true,
+      etikett: { ...ETIKETT, elemente },
+    });
+    await seiteOeffnen(page);
+    await bisBefund(page);
+
+    const erste = page.locator('.element').first().locator('.element-bild');
+    await expect(erste.locator('img')).toHaveAttribute('src', /element-1\.png$/);
+
+    // Ehrlich benennen, was da zu sehen ist — sonst hält der Leser eine
+    // fremde Flasche für seine eigene.
+    await expect(erste.locator('.element-ersatz')).toHaveText('Frühere Aufnahme');
+  });
+
   test('zerlegt das Etikett in einzelne Elemente', async ({ page }) => {
     await apiVortaeuschen(page);
     await seiteOeffnen(page);

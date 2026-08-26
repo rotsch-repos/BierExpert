@@ -783,7 +783,10 @@ function elementeBauen(
     text.append(kopf, wo, was, warum);
 
     /* --- rechts: das Foto mit Markierung --- */
-    li.append(text, bildMitMarkierung(bildUrl, element.bereich, element.bezeichnung));
+    li.append(
+      text,
+      bildMitMarkierung(bildUrl, element.bereich, element.bezeichnung, element.bild),
+    );
     liste.append(li);
   });
 
@@ -796,9 +799,38 @@ function elementeBauen(
  * Elements. Alles außerhalb wird abgedunkelt — der Blick geht damit sofort
  * an die richtige Stelle.
  */
-function bildMitMarkierung(bildUrl: string, bereich: Bereich, name: string): HTMLElement {
+function bildMitMarkierung(
+  bildUrl: string,
+  bereich: Bereich,
+  name: string,
+  ersatzbild = '',
+): HTMLElement {
   const figur = document.createElement('figure');
   figur.className = 'element-bild';
+
+  const k = kastenPruefen(bereich);
+
+  // Kein brauchbarer Bereich auf DIESEM Foto — das Element war verdeckt,
+  // angeschnitten oder abgewandt. Gibt es dazu eine gespeicherte
+  // Einzeichnung, ist sie hier mehr wert als das eigene Foto ohne
+  // Markierung: Sie zeigt wenigstens, wovon die Rede ist.
+  if (k === null && ersatzbild !== '') {
+    const bild = document.createElement('img');
+    bild.src = ersatzbild;
+    bild.alt = `„${name}" auf einer früheren Aufnahme dieses Biers`;
+    bild.loading = 'lazy';
+    bild.decoding = 'async';
+    figur.append(bild);
+
+    const zettel = document.createElement('figcaption');
+    zettel.className = 'element-ersatz label-caps';
+    // Ehrlich benennen, was da zu sehen ist. Ohne diesen Satz hielte der
+    // Leser eine fremde Flasche für seine eigene.
+    zettel.textContent = 'Frühere Aufnahme';
+    figur.append(zettel);
+
+    return figur;
+  }
 
   const bild = document.createElement('img');
   bild.src = bildUrl;
@@ -806,7 +838,6 @@ function bildMitMarkierung(bildUrl: string, bereich: Bereich, name: string): HTM
   bild.loading = 'lazy';
   figur.append(bild);
 
-  const k = kastenPruefen(bereich);
   if (k) {
     const marke = document.createElement('span');
     marke.className = 'element-marke';

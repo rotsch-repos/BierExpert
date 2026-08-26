@@ -271,6 +271,12 @@ $etikett = etikettSaeubern($roh);
 $bierId = null;
 if ($etikett['erkannt']) {
     $bierId = bierSpeichern($schluessel, $etikett, $llm['modell']);
+
+    // Die Einzeichnungen entstehen beim Aufnehmen, nicht beim Abrufen:
+    // einmal je Bier, danach werden sie nur noch ausgeliefert.
+    if ($bierId !== null && $bildDatei !== null) {
+        elementbilderErzeugen($bierId, $bildDatei, $etikett['elemente']);
+    }
 }
 
 scanProtokollieren([

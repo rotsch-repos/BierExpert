@@ -45,6 +45,14 @@ export const ElementSchema = z.object({
       'Element gelegt, aber vollständig. Bezogen auf das gesamte übergebene Bild, ' +
       'nicht nur auf das Etikett.',
   ),
+  /**
+   * Die fertig eingezeichnete Aufnahme zu diesem Element.
+   *
+   * Kommt aus der Datenbank, nicht vom Modell — deshalb optional: Ein
+   * frisch zerlegtes Etikett hat noch keine, und ein Server, der keine
+   * Fotos aufbewahrt, hat nie eine.
+   */
+  bild: z.string().optional().default(''),
 });
 
 export type Etikettelement = z.infer<typeof ElementSchema>;
