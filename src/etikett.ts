@@ -50,8 +50,53 @@ export interface Auswertung<T> {
   dauerMs: number;
 }
 
-export async function etikettLesen(bild: AufbereitetesBild): Promise<Auswertung<Etikett>> {
-  const antwort = await fragen('etikett.php', bild);
+/**
+ * Eine Zeile aus dem Fortschritts-Strom.
+ *
+ * Der Server schickt sie, während er arbeitet, statt am Ende alles auf
+ * einmal. Das ist nicht nur angenehmer: Ein Aufruf, der eine Minute lang
+ * kein Byte sendet, wird von Cloudflare abgebrochen (Fehler 524), und ein
+ * kaltes Modell braucht auf dieser Hardware länger als eine Minute.
+ */
+export interface Stromereignis {
+  stufe:
+    | 'laden'
+    | 'erkennung'
+    | 'erkannt'
+    | 'gefunden'
+    | 'verorten'
+    | 'auswertung'
+    | 'puls'
+    | 'fertig'
+    | 'fehler';
+  /** Bei 'erkannt' und 'gefunden': was bereits feststeht. */
+  brauerei?: string;
+  name?: string;
+  stil?: string;
+  ist_bier?: boolean;
+  /** Bei 'verorten': wie viele Elemente gesucht werden. */
+  elemente?: number;
+  /** Bei 'puls': welche Etappe gerade läuft. */
+  laeuft?: string;
+}
+
+/**
+ * Liest ein Etikett — und meldet unterwegs, wie weit es ist.
+ *
+ * Ohne Rückruf bleibt alles beim Alten: eine Anfrage, eine Antwort. Mit
+ * Rückruf verlangt der Aufruf den Strom und meldet jede Etappe. Der Server
+ * entscheidet nicht von sich aus, sondern richtet sich nach dem Accept-Kopf
+ * — dieselbe Anwendung läuft schliesslich auch dort, wo ein Strom nichts
+ * nützt.
+ */
+export async function etikettLesen(
+  bild: AufbereitetesBild,
+  aufEreignis?: (ereignis: Stromereignis) => void,
+): Promise<Auswertung<Etikett>> {
+  const antwort = aufEreignis
+    ? await fragenAlsStrom('etikett.php', bild, aufEreignis)
+    : await fragen('etikett.php', bild);
+
   return auspacken(antwort, 'etikett', EtikettSchema, 'Die Etikettzerlegung');
 }
 
@@ -88,17 +133,7 @@ async function fragen(pfad: string, bild: AufbereitetesBild): Promise<Record<str
       signal: abbruch.signal,
     });
   } catch (fehler) {
-    if (fehler instanceof DOMException && fehler.name === 'AbortError') {
-      throw new EtikettFehler(
-        'Die Auswertung hat zu lange gedauert.',
-        'Ein grosses Modell braucht beim ersten Aufruf am längsten, weil es erst in ' +
-          'den Speicher geladen wird. Der zweite Versuch ist meist deutlich schneller.',
-      );
-    }
-    throw new EtikettFehler(
-      'Der Server war nicht erreichbar.',
-      'Prüf deine Netzverbindung. Blockiert ein Browser-Add-on die Anfrage?',
-    );
+    throw netzfehler(fehler);
   } finally {
     clearTimeout(uhr);
   }
@@ -106,8 +141,27 @@ async function fragen(pfad: string, bild: AufbereitetesBild): Promise<Record<str
   // Erst den Text holen, dann parsen: Kommt statt JSON eine Fehlerseite des
   // Webservers zurück, steht in ihr die eigentliche Auskunft — sie einfach
   // als "unlesbares JSON" abzutun verschenkt sie.
-  const roh = await antwort.text();
+  return auswerten(antwort, await antwort.text());
+}
 
+/** Übersetzt einen fehlgeschlagenen fetch in eine Meldung für den Leser. */
+function netzfehler(fehler: unknown): EtikettFehler {
+  if (fehler instanceof DOMException && fehler.name === 'AbortError') {
+    return new EtikettFehler(
+      'Die Auswertung hat zu lange gedauert.',
+      'Ein grosses Modell braucht beim ersten Aufruf am längsten, weil es erst in ' +
+        'den Speicher geladen wird. Der zweite Versuch ist meist deutlich schneller.',
+    );
+  }
+
+  return new EtikettFehler(
+    'Der Server war nicht erreichbar.',
+    'Prüf deine Netzverbindung. Blockiert ein Browser-Add-on die Anfrage?',
+  );
+}
+
+/** Macht aus der Antwort des alten Weges den geprüften Umschlag. */
+function auswerten(antwort: Response, roh: string): Record<string, unknown> {
   let daten: unknown;
   try {
     daten = JSON.parse(roh);
@@ -136,6 +190,117 @@ async function fragen(pfad: string, bild: AufbereitetesBild): Promise<Record<str
   }
 
   return inhalt;
+}
+
+/**
+ * Wie fragen(), nur zeilenweise.
+ *
+ * Der Server schickt NDJSON: ein JSON-Objekt je Zeile, jedes sofort
+ * abgeschickt. Gelesen wird mit einem Reader statt mit .text(), denn .text()
+ * wartet auf das Ende — und genau darauf soll ja niemand mehr warten.
+ *
+ * Zurück kommt der Umschlag der letzten Zeile; er hat dieselbe Gestalt wie
+ * die Antwort des alten Weges, damit auspacken() nichts davon merkt.
+ */
+async function fragenAlsStrom(
+  pfad: string,
+  bild: AufbereitetesBild,
+  aufEreignis: (ereignis: Stromereignis) => void,
+): Promise<Record<string, unknown>> {
+  const abbruch = new AbortController();
+  const uhr = setTimeout(() => abbruch.abort(), ZEITGRENZE_MS);
+
+  try {
+    const kopf: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/x-ndjson',
+    };
+    const schluessel = schluesselLesen();
+    if (schluessel !== '') {
+      kopf['X-Anthropic-Schluessel'] = schluessel;
+    }
+
+    let antwort: Response;
+    try {
+      antwort = await fetch(`${API_BASIS}/${pfad}`, {
+        method: 'POST',
+        headers: kopf,
+        body: JSON.stringify({ bild: bild.base64, typ: bild.medienTyp }),
+        signal: abbruch.signal,
+      });
+    } catch (fehler) {
+      throw netzfehler(fehler);
+    }
+
+    // Ein Server, der den Strom nicht kennt, antwortet wie eh und je. Das
+    // ist kein Fehlerfall, sondern der Regelfall auf Hostpoint — dann eben
+    // ohne Zwischenstände.
+    const art = antwort.headers.get('Content-Type') ?? '';
+    if (!art.includes('application/x-ndjson')) {
+      return auswerten(antwort, await antwort.text());
+    }
+
+    if (!antwort.body) {
+      throw new EtikettFehler('Der Server hat einen leeren Strom geschickt.');
+    }
+
+    const leser = antwort.body.getReader();
+    const entpacker = new TextDecoder();
+    let rest = '';
+    let letzte: Record<string, unknown> | null = null;
+
+    for (;;) {
+      const { done, value } = await leser.read();
+      if (done) break;
+
+      rest += entpacker.decode(value, { stream: true });
+
+      // Nur bis zum letzten Zeilenumbruch: Was danach kommt, ist eine
+      // angefangene Zeile. Sie jetzt zu parsen hiesse, ein halbes JSON zu
+      // lesen — der Rest wartet auf das nächste Stück.
+      const zeilen = rest.split('\n');
+      rest = zeilen.pop() ?? '';
+
+      for (const zeile of zeilen) {
+        if (zeile.trim() === '') continue;
+
+        let ereignis: unknown;
+        try {
+          ereignis = JSON.parse(zeile);
+        } catch {
+          // Eine unlesbare Zwischenzeile ist kein Grund, den ganzen Scan
+          // wegzuwerfen — es zählt die letzte.
+          continue;
+        }
+
+        if (!ereignis || typeof ereignis !== 'object') continue;
+        letzte = ereignis as Record<string, unknown>;
+        aufEreignis(letzte as unknown as Stromereignis);
+      }
+    }
+
+    if (letzte === null) {
+      throw new EtikettFehler(
+        'Der Server hat den Strom abgebrochen.',
+        'Es kam keine vollständige Zeile an. Steht ein Zwischenspeicher davor, ' +
+          'der die Antwort sammelt, statt sie durchzureichen?',
+      );
+    }
+
+    // Ein Fehler nach dem ersten Byte kann keinen Statuscode mehr tragen —
+    // er kommt als letzte Zeile. Deshalb wird hier auf das Feld gesehen und
+    // nicht auf antwort.ok.
+    if (typeof letzte['fehler'] === 'string') {
+      throw new EtikettFehler(
+        letzte['fehler'],
+        typeof letzte['rat'] === 'string' ? letzte['rat'] : undefined,
+      );
+    }
+
+    return letzte;
+  } finally {
+    clearTimeout(uhr);
+  }
 }
 
 /** Prüft die Nutzlast gegen das Schema und schält sie aus dem Umschlag. */

@@ -150,6 +150,65 @@ dasteht.
 Für die tiefe Stufe bleibt das Denken an: Ein unbekanntes Etikett zu deuten
 ist genau die Aufgabe, bei der es beiträgt.
 
+### Der Fortschritts-Strom
+
+`/api/etikett.php` kann seine Antwort zeilenweise schicken (NDJSON, ein
+JSON-Objekt je Zeile), statt am Ende alles auf einmal. Verlangt wird das
+über den Accept-Kopf `application/x-ndjson`; ohne ihn antwortet der
+Endpunkt unverändert wie bisher. Das ist kein Zaudern: Auf Hostpoint wird
+die Anfrage ohnehin nach einer halben Minute gekappt, dort hilft ein Strom
+nichts und ein Bruch schadete.
+
+Der Anlass ist eine fremde Zeitgrenze. Cloudflare bricht eine Verbindung
+ab, wenn 100 Sekunden lang **kein Byte** fliesst — gezählt bis zum ersten
+Byte, danach zwischen den Bytes. Ein kalter Scan liegt darüber, und auf
+dieser Maschine ist kalt der Normalfall, weil sich mehrere Modelle die
+Karte teilen.
+
+Die Zeilen:
+
+| Zeile | Wann | Was drinsteht |
+|---|---|---|
+| `laden` | sofort | das erste Byte, mehr nicht |
+| `erkennung` | vor dem Ablesen | — |
+| `erkannt` | nach ~0,4 s | `brauerei`, `name`, `sicherheit` |
+| `gefunden` | bei einem Treffer | zusätzlich `stil` aus der Datenbank |
+| `verorten` | bei einem Treffer | wie viele Elemente gesucht werden |
+| `auswertung` | bei einem Fehlschlag | welcher Anbieter das Etikett zerlegt |
+| `puls` | alle 5 s | Lebenszeichen, solange ein Modell rechnet |
+| `fertig` | am Ende | das vollständige `etikett` |
+| `fehler` | statt `fertig` | `fehler` und `rat` |
+
+Der Herzschlag entsteht in curls Fortschrittsfunktion
+(`CURLOPT_XFERINFOFUNCTION`). Das ist der einzige Ort, an dem sich während
+einer blockierenden Anfrage überhaupt etwas tun lässt: curl ruft sie im
+Sekundentakt auf, auch wenn noch kein Byte vom Modell zurückkam — und
+genau das ist hier der Regelfall, denn Ollama antwortet erst, wenn es
+fertig gerechnet hat.
+
+Ein Fehler nach dem ersten Byte kann keinen Statuscode mehr tragen: Der
+steht dann längst auf 200. Er kommt deshalb als letzte Zeile, und der
+Leser im Browser richtet sich nach dem Feld `fehler` statt nach
+`response.ok`.
+
+Gemessen im Browser gegen das echte Backend (unbekanntes Bier, Modell
+absichtlich auf 12 s verlangsamt):
+
+```
+0,12 s  Der Braumeister nimmt die Flasche zur Hand …
+0,48 s  Ein „DUNKLES DOPPELBOCK" von Kloster Brau
+        Ein neues Etikett! Der Kessel wird angeheizt …
+5,54 s  … Der Kessel wird angeheizt …
+11,56 s … Die Sudpfanne kommt auf Temperatur …
+12,88 s Befund steht
+```
+
+Der erkannte Name steht in einer **eigenen, bleibenden** Zeile über der
+wechselnden. Mit nur einer Zeile ging er unter: Server schickt `erkannt`
+und `auswertung` unmittelbar hintereinander, und der Name war nach
+wenigen Millisekunden überschrieben — im Browser nachgemessen, bevor es
+die zweite Zeile gab.
+
 ### Die Fundstellen auf dem Foto
 
 Jedes Element trägt einen `bereich` in normalisierten Koordinaten (0 bis 1,

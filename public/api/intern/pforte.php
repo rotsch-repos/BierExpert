@@ -45,6 +45,7 @@ error_reporting(E_ALL);
 // Fall, dass doch gezählt wird. Ist die Funktion gesperrt, schadet es nicht.
 @set_time_limit(0);
 
+require_once __DIR__ . '/strom.php';
 require_once __DIR__ . '/antwort.php';
 require_once __DIR__ . '/konfiguration.php';
 require_once __DIR__ . '/anfrage.php';

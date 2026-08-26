@@ -182,6 +182,22 @@ function anthropicAnfragen(string $adresse, array $rumpf, int $zeitgrenze, strin
         CURLOPT_SSL_VERIFYHOST => 2,
     ]);
 
+    // Derselbe Herzschlag wie beim eigenen Modell, aus demselben Grund:
+    // Auch ein Aufruf über das Netz ist bis zur Antwort vollkommen stumm.
+    // Die Wartezeit ist hier kürzer, aber die Strecke davor — Browser,
+    // Cloudflare, dieser Server — ist dieselbe.
+    if (stromAktiv()) {
+        $puls = pulsgeber(stromStufe());
+        curl_setopt_array($griff, [
+            CURLOPT_NOPROGRESS => false,
+            CURLOPT_XFERINFOFUNCTION => static function () use ($puls): int {
+                $puls();
+
+                return 0;
+            },
+        ]);
+    }
+
     $roh = curl_exec($griff);
     $status = (int) curl_getinfo($griff, CURLINFO_RESPONSE_CODE);
     $fehlernummer = curl_errno($griff);

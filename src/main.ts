@@ -1,6 +1,7 @@
 import './style.css';
 import { bildAufbereiten, BildFehler, type AufbereitetesBild } from './bild';
 import { erweitertLesen, etikettLesen, EtikettFehler, type Auswertung } from './etikett';
+import { braumeister } from './braumeister';
 import type { Bereich, Erweitert, Etikett, Etikettelement } from './schema';
 import { FAMILIEN, SORTEN, type Biersorte, type Familie } from './glossar';
 import { glasZeichnen } from './glas';
@@ -155,13 +156,23 @@ lesenTaste.addEventListener('click', async () => {
   laeuft = true;
   lesenTaste.disabled = true;
   lesenTaste.textContent = 'Wird gelesen …';
-  wartenZeigen();
+  const warten = wartenZeigen();
+  const erzaehler = braumeister();
 
   const lauf = ++laufNummer;
   const bild = aktuellesBild;
 
   try {
-    const auswertung = await etikettLesen(bild);
+    const auswertung = await etikettLesen(bild, (ereignis) => {
+      // Ein überholter Lauf darf die Zeile nicht mehr anfassen: Wer während
+      // einer Auswertung ein neues Foto einwirft, bekäme sonst die
+      // Zwischenstände der alten zu lesen.
+      if (lauf !== laufNummer) return;
+
+      const ansage = erzaehler(ereignis);
+      if (ansage.fund !== undefined) warten.fund(ansage.fund);
+      if (ansage.zeile !== undefined) warten.satz(ansage.zeile);
+    });
     if (lauf !== laufNummer) return;
 
     // Erst jetzt die erweiterte Sicht anstoßen, nicht schon vorhin daneben.
@@ -202,7 +213,21 @@ function abschnittOeffnen(): HTMLDivElement {
   return befundZiel;
 }
 
-function wartenZeigen(): void {
+/**
+ * Zeigt das Warten an — und gibt zurück, womit sich die Zeile ändern lässt.
+ *
+ * Der Rückgabewert ist der ganze Unterschied zu vorher: Die Zeile stand
+ * früher fest, weil niemand wusste, was der Server gerade tut. Seit er es
+ * zeilenweise mitteilt, kann hier stehen, was tatsächlich geschieht.
+ */
+interface Wartestand {
+  /** Die wechselnde Zeile: was gerade geschieht. */
+  satz(text: string): void;
+  /** Der bleibende Fund: welches Bier erkannt wurde. */
+  fund(was: string): void;
+}
+
+function wartenZeigen(): Wartestand {
   const ziel = abschnittOeffnen();
   const block = document.createElement('div');
   block.className = 'warten';
@@ -216,9 +241,38 @@ function wartenZeigen(): void {
   text.style.margin = '0';
   text.textContent = 'Das Etikett wird gelesen und in seine Elemente zerlegt …';
 
+  // Damit auch ein Vorleseprogramm mitbekommt, dass sich hier etwas tut —
+  // "polite", weil es den Leser nicht unterbrechen soll: Die Zeile ist
+  // Begleitung, nicht Meldung.
+  text.setAttribute('aria-live', 'polite');
+
   block.append(mal, text);
   ziel.append(block);
   abschnittBefund.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // Der Fund bekommt eine eigene Zeile ÜBER der wechselnden — und sie
+  // entsteht erst, wenn es etwas zu melden gibt. Ein leerer Platzhalter
+  // liesse den Block von Anfang an höher wirken und beim Auftauchen des
+  // Namens nichts geschehen.
+  let fundZeile: HTMLParagraphElement | null = null;
+
+  return {
+    satz(text_: string): void {
+      text.textContent = text_;
+    },
+
+    fund(was: string): void {
+      if (fundZeile === null) {
+        fundZeile = document.createElement('p');
+        fundZeile.className = 'title-sm';
+        fundZeile.style.margin = '0 0 0.25rem';
+        fundZeile.setAttribute('aria-live', 'polite');
+        text.before(fundZeile);
+      }
+
+      fundZeile.textContent = was;
+    },
+  };
 }
 
 function zeigeFehler(titel: string, rat?: string): void {

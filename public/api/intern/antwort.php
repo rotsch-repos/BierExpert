@@ -32,6 +32,19 @@ final class BierFehler extends RuntimeException
 /** Schreibt die Antwort und beendet den Aufruf. */
 function antwortSenden(int $status, array $daten): void
 {
+    // Läuft ein Strom, sind die Kopfzeilen längst draussen und der Status
+    // steht auf 200 — eine zweite Antwort mit eigenem Status gäbe es dort
+    // nicht mehr. Die Nutzlast geht dann als letzte Ereigniszeile hinaus.
+    //
+    // Der Status ist deshalb nicht verloren: Ein Fehler trägt sein "fehler"
+    // im Objekt, und danach richtet sich der Leser ohnehin — er muss das
+    // bei einem Strom sogar, weil ein Fehler nach dem ersten Byte gar
+    // keinen anderen Weg mehr hat.
+    if (stromAktiv()) {
+        stromZeile(['stufe' => isset($daten['fehler']) ? 'fehler' : 'fertig'] + $daten);
+        exit;
+    }
+
     if (!headers_sent()) {
         header('Content-Type: application/json; charset=utf-8', true, $status);
         // Eine Auswertung ist nie zwischenspeicherbar: Dasselbe Foto zweimal

@@ -270,6 +270,31 @@ function anfragen(string $adresse, array $rumpf, int $zeitgrenze, string $schlue
         CURLOPT_SSL_VERIFYHOST => 2,
     ]);
 
+    // Der Herzschlag, solange das Modell rechnet.
+    //
+    // Die Fortschrittsfunktion ist der einzige Ort, an dem sich während
+    // einer blockierenden Anfrage überhaupt etwas tun lässt: curl ruft sie
+    // etwa im Sekundentakt auf, auch wenn noch kein einziges Byte
+    // zurückgekommen ist. Genau das ist hier der Normalfall — Ollama
+    // antwortet erst, wenn es fertig gerechnet hat.
+    //
+    // Ohne diesen Griff bliebe die Strecke zwischen Anfrage und Antwort
+    // vollkommen stumm, und das ist die Stille, an der Cloudflare eine
+    // Verbindung abbricht.
+    if (stromAktiv()) {
+        $puls = pulsgeber(stromStufe());
+        curl_setopt_array($griff, [
+            CURLOPT_NOPROGRESS => false,
+            CURLOPT_XFERINFOFUNCTION => static function () use ($puls): int {
+                $puls();
+
+                // 0 heisst "weitermachen". Alles andere bräche die
+                // Übertragung ab — der Rückgabewert ist hier kein Beiwerk.
+                return 0;
+            },
+        ]);
+    }
+
     $roh = curl_exec($griff);
     $status = (int) curl_getinfo($griff, CURLINFO_RESPONSE_CODE);
     $fehlernummer = curl_errno($griff);

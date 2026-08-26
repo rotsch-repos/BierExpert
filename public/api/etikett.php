@@ -24,12 +24,40 @@ $begonnen = hrtime(true);
 $bild = bildAusRumpf(rumpfLesen());
 $llm = konfiguration()['llm'];
 
+// Erst hier, nicht früher: Bis zu dieser Zeile kann die Anfrage noch mit
+// einem ehrlichen Statuscode abgewiesen werden — zu gross, kein Bild, kein
+// POST. Ist der Strom einmal offen, steht der Status unwiderruflich auf 200
+// und jeder Fehler muss als Zeile hinterhergeschickt werden. Diese Wahl so
+// spät wie möglich zu treffen, kostet nichts und erhält die klaren Fehler.
+if (stromGewuenscht()) {
+    stromBeginnen();
+
+    // Das erste Byte, und der Grund für den ganzen Strom: Ab jetzt zählt
+    // Cloudflares Grenze nicht mehr die Zeit bis zur Antwort, sondern nur
+    // noch die Stille zwischen zwei Zeilen.
+    stromZeile(['stufe' => 'laden']);
+}
+
 /** Vergangene Zeit in Millisekunden. */
 $dauer = static fn (): int => (int) ((hrtime(true) - $begonnen) / 1_000_000);
 
 /* --- Erste Stufe: ablesen ------------------------------------------------ */
 
+stromStufe('erkennung');
+stromAktiv() && stromZeile(['stufe' => 'erkennung']);
+
 $erkennung = erkennen($bild);
+
+// Das erste echte Zwischenergebnis. Es ist keine Beschäftigung des Lesers,
+// sondern eine Auskunft, die er sonst erst am Ende bekäme: Der Name des
+// Biers steht damit auf dem Schirm, während die Zerlegung noch läuft.
+stromAktiv() && stromZeile([
+    'stufe' => 'erkannt',
+    'ist_bier' => $erkennung['ist_bier'],
+    'brauerei' => $erkennung['brauerei'],
+    'name' => $erkennung['name'],
+    'sicherheit' => $erkennung['sicherheit'],
+]);
 
 $schluessel = $erkennung['ist_bier']
     ? schluesselBilden($erkennung['brauerei'], $erkennung['name'])
@@ -53,6 +81,20 @@ if ($treffer !== null && $treffer['etikett']['elemente'] !== []) {
     // Behauptung über etwas, das niemand angesehen hat. Woher die Auskunft
     // stammt, sagt "quelle" — das ist keine Unsicherheit, sondern Herkunft.
     $etikett['hinweis'] = '';
+
+    // Beim Treffer ist der Stil schon bekannt — er steht in der Datenbank.
+    // Damit kann die Anzeige beim Warten etwas Wahres sagen ("ein Doppelbock")
+    // statt einer Floskel.
+    stromAktiv() && stromZeile([
+        'stufe' => 'gefunden',
+        'quelle' => 'speicher',
+        'brauerei' => $etikett['brauerei'] ?? '',
+        'name' => $etikett['name'] ?? '',
+        'stil' => $etikett['stil'] ?? '',
+    ]);
+
+    stromStufe('verorten');
+    stromAktiv() && stromZeile(['stufe' => 'verorten', 'elemente' => count($etikett['elemente'])]);
 
     // Die Rahmen für DIESES Foto neu bestimmen. Gespeicherte sässen daneben.
     $bereiche = verorten($bild, array_column($etikett['elemente'], 'bezeichnung'));
@@ -86,6 +128,14 @@ if ($treffer !== null && $treffer['etikett']['elemente'] !== []) {
 // kleine Modell ist schnell, nicht unfehlbar. Über "erkannt" entscheidet
 // das grosse — ein zu Unrecht abgewiesenes Foto wäre der ärgerlichere
 // Fehler als ein überflüssiger Aufruf.
+stromStufe('auswertung');
+stromAktiv() && stromZeile([
+    'stufe' => 'auswertung',
+    // Ehrlich benennen, worauf gewartet wird: Ein unbekanntes Etikett geht
+    // an das grosse Modell, und das dauert länger als alles davor.
+    'anbieter' => $llm['anbieter_tief'],
+]);
+
 try {
     $roh = modellFragen(ETIKETT_ANWEISUNG, ETIKETT_FRAGE, schemaEtikett(), $bild->base64);
 } catch (BierFehler $fehler) {
