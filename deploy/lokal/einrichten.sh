@@ -93,6 +93,20 @@ schritt_verzeichnisse() {
     ausfuehren sudo chmod 755 "$BASIS"
   fi
 
+  # Die Python-Umgebung für die Bildregistrierung.
+  #
+  # Eine eigene Umgebung und keine Systempakete: OpenCV gibt es für PHP
+  # nicht, und die Systeminstallation zu verändern verlangt sudo für etwas,
+  # das genauso gut daneben liegen kann. Sie steht ausserhalb der Stände,
+  # damit ein Deploy sie nicht mitnimmt.
+  if [ -x "$BASIS/werkzeuge/cv/bin/python" ]; then
+    steht "$BASIS/werkzeuge/cv"
+  else
+    ausfuehren mkdir -p "$BASIS/werkzeuge"
+    ausfuehren python3 -m venv "$BASIS/werkzeuge/cv"
+    ausfuehren "$BASIS/werkzeuge/cv/bin/pip" install --quiet opencv-python-headless numpy
+  fi
+
   # Die aufbewahrten Scanfotos liegen NEBEN den Ständen, nicht in einem.
   # Läge das Verzeichnis unter releases/<sha>, verschwände die halbe
   # Galerie beim nächsten Aufräumen der alten Stände.
@@ -273,6 +287,13 @@ return [
         // Browser zeichnet. Einschalten, wenn die Bilder zum Teilen
         // gebraucht werden — dann aber sieben Kopien je Bier einplanen.
         'einzeichnungen' => false,
+    ],
+    // Die Bildregistrierung: Rahmen vom Referenzfoto durchreichen, statt sie
+    // ein zweites Mal vom Modell suchen zu lassen. Rund 100 ms statt 2500.
+    // Leer heisst aus — dann übernimmt weiterhin das kleine Modell.
+    'registrierung' => [
+        'python' => $(php_text "${BASIS}/werkzeuge/cv/bin/python"),
+        'skript' => $(php_text "${BASIS}/aktuell/dienst/registrieren.py"),
     ],
     'herkuenfte' => [],
     'speicher' => true,

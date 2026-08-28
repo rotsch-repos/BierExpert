@@ -50,7 +50,12 @@ if (!$etikett['erkannt']) {
     antwortSenden(200, ['id' => null, 'bilder' => []]);
 }
 
-$kennung = bierSpeichern($schluessel, $etikett, (string) ($rumpf['modell'] ?? ''));
+$referenzBild = bildDateiZuPruefsumme((string) ($rumpf['pruefsumme'] ?? ''));
+
+// Das Foto dieses Scans wird zum Referenzfoto: Die Rahmen aus der Zerlegung
+// beziehen sich darauf, und an ihnen richtet die Registrierung später jede
+// weitere Aufnahme aus.
+$kennung = bierSpeichern($schluessel, $etikett, (string) ($rumpf['modell'] ?? ''), $referenzBild);
 
 if ($kennung === null) {
     fehlerSenden(503, 'Das Bier liess sich nicht ablegen.',
@@ -60,13 +65,12 @@ if ($kennung === null) {
 // Das Foto, das eben noch zu keinem Bier gehörte, gehört jetzt zu diesem.
 // Ohne diesen Nachtrag bliebe die Galerie eines neu aufgenommenen Biers
 // ausgerechnet beim ersten Mal leer.
-$pruefsumme = (string) ($rumpf['pruefsumme'] ?? '');
-bildZuBierNachtragen($pruefsumme, $kennung);
+bildZuBierNachtragen((string) ($rumpf['pruefsumme'] ?? ''), $kennung);
 
 // Die Einzeichnungen: je Element das Referenzfoto mit einem Rahmen darum.
 // Genau hier und nirgends sonst — es ist der eine Augenblick, in dem ein
 // Bier neu in die Datenbank kommt. Alles Spätere liest nur noch.
-elementbilderErzeugen($kennung, bildDateiZuPruefsumme($pruefsumme), $etikett['elemente']);
+elementbilderErzeugen($kennung, $referenzBild, $etikett['elemente']);
 
 antwortSenden(200, [
     'id' => $kennung,

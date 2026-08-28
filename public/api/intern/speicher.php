@@ -46,7 +46,8 @@ function bierLaden(string $schluessel): ?array
     try {
         $abfrage = $db->prepare(
             'SELECT id, brauerei, name, ort, land, gegruendet, stil, stammwuerze, alkohol,
-                    farbwahl, schriftbild, hintergrund, gespraechsstoff, erweitert
+                    farbwahl, schriftbild, hintergrund, gespraechsstoff, erweitert,
+                    referenz_bild
                FROM biere
               WHERE schluessel = ?',
         );
@@ -60,7 +61,8 @@ function bierLaden(string $schluessel): ?array
         $id = (int) $zeile['id'];
 
         $elementeAbfrage = $db->prepare(
-            'SELECT bezeichnung, position, beschreibung, bedeutung, bild_datei
+            'SELECT bezeichnung, position, beschreibung, bedeutung, bild_datei,
+                    referenz_bereich
                FROM etikett_elemente
               WHERE bier_id = ?
               ORDER BY reihenfolge',
@@ -84,6 +86,11 @@ function bierLaden(string $schluessel): ?array
                     && $element['bild_datei'] !== ''
                         ? $bilderBasis . '/' . rawurlencode((string) $element['bild_datei'])
                         : '',
+                // Der Anker für die Registrierung. Verlässt die Anlage nie —
+                // er gilt nur für das Referenzfoto und wäre für jedes andere
+                // falsch. Deshalb wird er in etikettSaeubern auch nicht
+                // weitergereicht.
+                'referenz_bereich' => jsonSpalte($element['referenz_bereich'] ?? null),
                 // Wird von der Verortung überschrieben. Ein Rahmen dieser
                 // Grösse wird vom Frontend verworfen — dort steht dann keine
                 // falsche Markierung, sondern gar keine.
@@ -96,6 +103,7 @@ function bierLaden(string $schluessel): ?array
         // Etikettzerlegung ist das kein Treffer.
         return [
             'id' => $id,
+            'referenz_bild' => (string) ($zeile['referenz_bild'] ?? ''),
             'etikett' => [
                 'erkannt' => true,
                 'name' => (string) $zeile['name'],
@@ -127,8 +135,12 @@ function bierLaden(string $schluessel): ?array
  * laufen nebeneinander, und wer zuletzt schreibt, darf nicht löschen, was
  * der andere gerade eingetragen hat.
  */
-function bierSpeichern(string $schluessel, array $etikett, string $modell): ?int
-{
+function bierSpeichern(
+    string $schluessel,
+    array $etikett,
+    string $modell,
+    string $referenzBild = '',
+): ?int {
     if ($schluessel === '') {
         return null;
     }
@@ -143,18 +155,23 @@ function bierSpeichern(string $schluessel, array $etikett, string $modell): ?int
     try {
         $db->beginTransaction();
 
+        // COALESCE beim Referenzfoto: Eine spätere Auswertung ohne Foto darf
+        // das bestehende nicht wegnehmen — sonst verlöre die Registrierung
+        // ihren Anker, und jeder Scan liefe wieder über das Modell.
         $db->prepare(
             'INSERT INTO biere
                  (schluessel, brauerei, name, ort, land, gegruendet, stil, stammwuerze,
-                  alkohol, farbwahl, schriftbild, hintergrund, gespraechsstoff, modell)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                  alkohol, farbwahl, schriftbild, hintergrund, gespraechsstoff, modell,
+                  referenz_bild)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
              ON DUPLICATE KEY UPDATE
                  brauerei = VALUES(brauerei), name = VALUES(name), ort = VALUES(ort),
                  land = VALUES(land), gegruendet = VALUES(gegruendet), stil = VALUES(stil),
                  stammwuerze = VALUES(stammwuerze), alkohol = VALUES(alkohol),
                  farbwahl = VALUES(farbwahl), schriftbild = VALUES(schriftbild),
                  hintergrund = VALUES(hintergrund), gespraechsstoff = VALUES(gespraechsstoff),
-                 modell = VALUES(modell)',
+                 modell = VALUES(modell),
+                 referenz_bild = COALESCE(VALUES(referenz_bild), referenz_bild)',
         )->execute([
             $schluessel,
             gekuerzt($etikett['brauerei'] ?? '', 190),
@@ -170,6 +187,7 @@ function bierSpeichern(string $schluessel, array $etikett, string $modell): ?int
             (string) ($etikett['hintergrund'] ?? ''),
             alsJson($etikett['gespraechsstoff'] ?? []),
             gekuerzt($modell, 120),
+            $referenzBild === '' ? null : gekuerzt($referenzBild, 190),
         ]);
 
         // lastInsertId() liefert bei einem Treffer auf den Einmalig-Schlüssel
@@ -187,8 +205,9 @@ function bierSpeichern(string $schluessel, array $etikett, string $modell): ?int
 
         $einfuegen = $db->prepare(
             'INSERT INTO etikett_elemente
-                 (bier_id, reihenfolge, bezeichnung, position, beschreibung, bedeutung)
-             VALUES (?,?,?,?,?,?)',
+                 (bier_id, reihenfolge, bezeichnung, position, beschreibung, bedeutung,
+                  referenz_bereich)
+             VALUES (?,?,?,?,?,?,?)',
         );
 
         foreach (array_values($elemente) as $nummer => $element) {
@@ -202,6 +221,12 @@ function bierSpeichern(string $schluessel, array $etikett, string $modell): ?int
                 gekuerzt($element['position'] ?? '', 190),
                 (string) ($element['beschreibung'] ?? ''),
                 (string) ($element['bedeutung'] ?? ''),
+                // Der Rahmen auf DEM REFERENZFOTO — der Anker, an dem die
+                // Registrierung später jedes weitere Foto ausrichtet. Ohne
+                // Referenzfoto ist er wertlos und bleibt leer.
+                $referenzBild === '' || !is_array($element['bereich'] ?? null)
+                    ? null
+                    : alsJson($element['bereich']),
             ]);
         }
 

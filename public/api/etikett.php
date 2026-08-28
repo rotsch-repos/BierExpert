@@ -192,7 +192,7 @@ if ($treffer !== null && $treffer['etikett']['elemente'] !== []) {
     stromAktiv() && stromZeile(['stufe' => 'verorten', 'elemente' => count($etikett['elemente'])]);
 
     // Die Rahmen für DIESES Foto neu bestimmen. Gespeicherte sässen daneben.
-    $bereiche = verorten($bild, array_column($etikett['elemente'], 'bezeichnung'));
+    $bereiche = bereicheFuerFoto($bild, $treffer);
     foreach ($etikett['elemente'] as $nummer => $element) {
         if (isset($bereiche[$element['bezeichnung']])) {
             $etikett['elemente'][$nummer]['bereich'] = $bereiche[$element['bezeichnung']];
@@ -270,7 +270,10 @@ $etikett = etikettSaeubern($roh);
 // Schlüssel darunter ist der der ersten Stufe.
 $bierId = null;
 if ($etikett['erkannt']) {
-    $bierId = bierSpeichern($schluessel, $etikett, $llm['modell']);
+    // Das Foto dieses Scans wird zum Referenzfoto des Biers: Die Rahmen aus
+    // der Zerlegung beziehen sich darauf, und an ihnen richtet die
+    // Registrierung später jede weitere Aufnahme aus.
+    $bierId = bierSpeichern($schluessel, $etikett, $llm['modell'], (string) $bildDatei);
 
     // Die Einzeichnungen entstehen beim Aufnehmen, nicht beim Abrufen:
     // einmal je Bier, danach werden sie nur noch ausgeliefert.

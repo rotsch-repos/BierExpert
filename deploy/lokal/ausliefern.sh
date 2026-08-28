@@ -102,6 +102,18 @@ echo "==> Ablegen unter ${STAND}"
 mkdir -p "$STAND"
 rsync -a --delete dist/ "$STAND/"
 
+# Der Python-Helfer für die Bildregistrierung gehört mit in den Stand.
+#
+# Er liegt unter dienst/ im Wurzelverzeichnis und nicht unter public/, weil
+# er nichts ist, was ein Webserver ausliefern soll — aufgerufen wird er von
+# PHP als Prozess. Mitkopiert wird er trotzdem: So gehört zu jedem Stand
+# genau der Helfer, der zu seinem PHP passt. Läge er nur im Repo, liefe nach
+# einem Deploy neuer Code gegen einen alten Helfer.
+if [ -f dienst/registrieren.py ]; then
+  mkdir -p "$STAND/dienst"
+  rsync -a dienst/ "$STAND/dienst/"
+fi
+
 echo "==> Umschalten"
 # ln -sfn auf einen bestehenden Symlink ist NICHT unteilbar: Es entfernt
 # erst und legt dann neu an. In dem Augenblick dazwischen zeigt der Zeiger

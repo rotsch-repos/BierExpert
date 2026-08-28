@@ -97,7 +97,7 @@ $etikett = $treffer['etikett'];
 $etikett['sicherheit'] = $erkennung['sicherheit'];
 $etikett['hinweis'] = '';
 
-$bereiche = verorten($bild, array_column($etikett['elemente'], 'bezeichnung'));
+$bereiche = bereicheFuerFoto($bild, $treffer);
 foreach ($etikett['elemente'] as $nummer => $element) {
     if (isset($bereiche[$element['bezeichnung']])) {
         $etikett['elemente'][$nummer]['bereich'] = $bereiche[$element['bezeichnung']];

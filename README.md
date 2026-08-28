@@ -313,6 +313,60 @@ bezogen auf das ganze Bild). Weil das an die API geschickte Bild dasselbe
 herunterskalierte Bild ist wie die Vorschau im DOM, lassen sich die Werte
 direkt als Prozent auf das angezeigte Foto legen.
 
+#### Erst rechnen, dann fragen: die Bildregistrierung
+
+Ein Etikett ändert sich über Jahre nicht. Zwei Fotos derselben Flasche
+unterscheiden sich nur durch Winkel, Abstand und Licht — also durch eine
+**Abbildung, die sich aus den Bildern selbst bestimmen lässt**. Wer sie
+kennt, muss die Elemente nicht ein zweites Mal von einem Modell suchen
+lassen, sondern reicht die Rahmen vom Referenzfoto durch.
+
+Deshalb steht bei einem Treffer die Registrierung vor dem Modell:
+
+1. **Registrierung** (`dienst/registrieren.py`): markante Punkte in beiden
+   Fotos finden (SIFT), einander zuordnen, aus den Zuordnungen die
+   Homographie schätzen (RANSAC), Rahmen durchreichen. **~100 ms, ohne GPU.**
+2. **Das Modell**, wenn die Abbildung nicht trägt. ~2500 ms.
+
+Merkmale statt Farben, und zwar aus drei Gründen: Anderes Licht verschiebt
+*alle* Farbwerte auf einmal; der Hintergrund (Tisch, Hand, Regal) ginge voll
+in die Rechnung ein; und eine Flasche ist ein Zylinder, dessen Etikett sich
+krümmt — eine blosse Drehung könnte es nie zur Deckung bringen.
+
+Gemessen am 28.08. an Fassungen desselben Etiketts:
+
+| Fall | Vertrauen | Rahmen | Zeit |
+|---|---|---|---|
+| 9° gedreht, andere Grösse | 0,89 | 5 von 5 | 109 ms |
+| 12° gedreht | 0,97 | 4 von 4 | 42 ms |
+| aufs Etikett beschnitten | 0,95 | **3** von 4 | 23 ms |
+| gespiegelt | 0,48 | — | abgelehnt |
+| fremdes Etikett | 0,00 | — | abgelehnt |
+
+Zwei Zeilen verdienen eine Erklärung. Beim **beschnittenen** Foto sind es
+absichtlich nur drei Rahmen: Die Goldkapsel liegt ausserhalb des
+Ausschnitts, die Registrierung rechnet sie auf y = −1,03 und lässt sie weg.
+Dasselbe Foto brachte das Modell dazu, dort einen Rahmen zu **erfinden**.
+
+Beim **gespiegelten** Foto misslingt die Registrierung (SIFT-Merkmale sind
+nicht spiegelinvariant) — und genau dafür ist das Vertrauensmass da: 0,48
+liegt unter der Schwelle von 0,80, der Fall geht ans Modell. Ein Rahmen an
+falscher Stelle ist schlimmer als ein langsamer.
+
+Das Vertrauensmass beantwortet nebenbei eine zweite Frage: Ein fremdes
+Etikett bringt gar keine Abbildung zustande. Dasselbe Verfahren könnte also
+auch das Bier **erkennen**, ohne einen einzigen Modellaufruf.
+
+Dafür stehen zwei Angaben in der Datenbank, die es vorher nicht gab:
+`biere.referenz_bild` und `etikett_elemente.referenz_bereich`. Das ist keine
+Ausnahme vom Grundsatz „keine Koordinaten speichern", sondern beruht darauf:
+Der Rahmen wird **zusammen mit dem Foto** aufbewahrt, auf das er sich
+bezieht. Eine Koordinate ohne ihr Foto bliebe falsch.
+
+Es braucht OpenCV, das es für PHP nicht gibt — deshalb ein Python-Helfer,
+den PHP als Prozess aufruft, und deshalb ist es abschaltbar
+(`registrierung.python` leer = aus).
+
 #### Ein anderes Foto derselben Flasche
 
 Weil kein Bereich gespeichert wird, muss die Verortung bei jedem Treffer neu

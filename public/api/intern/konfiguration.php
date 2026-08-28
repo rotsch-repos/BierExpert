@@ -192,6 +192,22 @@ function konfiguration(): array
             'einzeichnungen' => (bool) ($roh['bilder']['einzeichnungen'] ?? false),
         ],
 
+        // Die Bildregistrierung: Rahmen vom Referenzfoto durchreichen,
+        // statt sie ein zweites Mal vom Modell suchen zu lassen.
+        //
+        // Zwei Fotos derselben Flasche unterscheiden sich nur durch Winkel,
+        // Abstand und Licht — also durch eine Abbildung, die sich aus den
+        // Bildern selbst bestimmen lässt. Gemessen am 28.08.: rund 100 ms
+        // (samt Prozessstart) gegen 2500 ms für denselben Durchgang auf der
+        // GPU, und mit einem Vertrauensmass obendrein.
+        //
+        // Leer heisst aus. Es braucht OpenCV, das es für PHP nicht gibt —
+        // deshalb ein eigener Python-Aufruf und deshalb nicht die Vorgabe.
+        'registrierung' => [
+            'python' => (string) ($roh['registrierung']['python'] ?? ''),
+            'skript' => (string) ($roh['registrierung']['skript'] ?? ''),
+        ],
+
         // Zusätzlich erlaubte Herkünfte für Anfragen aus dem Browser.
         // Im Regelfall leer: Seite und API liegen unter derselben Adresse,
         // dann fragt der Browser gar nicht erst nach. Für die Entwicklung

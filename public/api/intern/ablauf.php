@@ -47,6 +47,44 @@ function erkennen(Bild $bild): array
 }
 
 /**
+ * Die Rahmen für DIESES Foto — erst rechnen, dann fragen.
+ *
+ * Zwei Wege zum selben Ziel, in dieser Reihenfolge:
+ *
+ *   1. Registrierung. Liegt ein Referenzfoto samt Rahmen vor, lässt sich
+ *      die Abbildung zwischen beiden Fotos aus den Bildern selbst
+ *      bestimmen und die Rahmen durchreichen. Rund 100 ms, ohne GPU, mit
+ *      einem Vertrauensmass obendrein.
+ *   2. Das Modell. Trägt die Abbildung nicht — anderes Etikett, zu wenig
+ *      Übereinstimmung, kein Referenzfoto —, sucht das kleine Modell die
+ *      Elemente wie bisher. Rund 2500 ms.
+ *
+ * Der zweite Weg bleibt, weil der erste eine Voraussetzung hat, die nicht
+ * immer erfüllt ist. Ein Bier, das vor der Registrierung aufgenommen wurde,
+ * hat kein Referenzfoto; und eine Abbildung, der man nicht trauen kann,
+ * ist schlechter als keine.
+ *
+ * @param  array{referenz_bild?:string, etikett:array} $treffer
+ * @return array<string, array{x:float,y:float,breite:float,hoehe:float}>
+ */
+function bereicheFuerFoto(Bild $bild, array $treffer): array
+{
+    $elemente = $treffer['etikett']['elemente'] ?? [];
+
+    $registriert = registrierungVersuchen(
+        $bild,
+        (string) ($treffer['referenz_bild'] ?? ''),
+        is_array($elemente) ? $elemente : [],
+    );
+
+    if ($registriert !== null) {
+        return $registriert;
+    }
+
+    return verorten($bild, array_column($elemente, 'bezeichnung'));
+}
+
+/**
  * Treffer-Stufe: die gespeicherten Elemente in diesem Foto wiederfinden.
  *
  * Scheitert dieser Aufruf, ist das kein Grund, den ganzen Scan fallen zu
