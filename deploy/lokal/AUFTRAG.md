@@ -148,7 +148,29 @@ Sie hängt an denselben Ereignissen; es ist reine Frontend-Arbeit.
 
 **Ebenfalls offen:** die Websearch-Anreicherung (SearXNG lokal).
 
-## Phase D — die Einzeichnungen je Element (NEU, Entscheidung offen)
+## Phase F — Bildregistrierung (NEU, erledigt am 28.08.)
+
+Bei einem Treffer läuft nicht mehr zuerst das Modell, sondern die
+Registrierung: markante Punkte in Referenzfoto und vorliegendem Foto
+finden, zuordnen, Homographie schätzen, Rahmen durchreichen. Rund 100 ms
+statt 2500, ohne GPU.
+
+Gemessen: 9° gedreht und anders skaliert 0,89 Vertrauen und 5 von 5 Rahmen;
+beschnitten 0,95 und 3 von 4 (die Kapsel liegt ausserhalb und fällt korrekt
+weg); gespiegelt 0,48 und fremdes Etikett 0,00 — beide abgelehnt, dort
+übernimmt weiterhin das Modell.
+
+Dafür neu in der Datenbank: `biere.referenz_bild` und
+`etikett_elemente.referenz_bereich`. Braucht OpenCV in einer eigenen venv
+unter `$BASIS/werkzeuge/cv`; `einrichten.sh` legt sie an, `ausliefern.sh`
+kopiert `dienst/` in jeden Stand.
+
+**Offen:** Bisher nur an Fassungen DESSELBEN Fotos gemessen (gedreht,
+skaliert, beschnitten). Zwei echte Aufnahmen derselben Flasche haben
+anderes Licht, echte Perspektive und echte Krümmung — das ist härter. Vor
+der Abnahme ein paar echte Fotopaare durchmessen.
+
+## Phase D — die Einzeichnungen je Element (entschieden am 28.08.)
 
 Roger möchte, dass zu jedem Element „dasselbe Bild mit *einer* Einzeichnung"
 verfügbar ist — etwa die Frau auf dem Etikett, einzeln markiert.
@@ -169,13 +191,21 @@ Zwei Wege, und der Unterschied ist erheblich:
   Vorschau in WhatsApp, für einen PDF-Steckbrief. Dann besser **auf Abruf**
   erzeugen (GD ist in PHP vorhanden) als auf Vorrat.
 
-Vorschlag: Koordinaten speichern, Rendern erst dann, wenn ein Teilen-Knopf
-tatsächlich gebaut wird.
+**So entschieden:** Beides ist gebaut, aber das Rendern hängt an einem
+Schalter, der voreingestellt **aus** ist (`bilder.einzeichnungen`). Für die
+Anzeige genügen die Koordinaten im JSON, die der Browser zeichnet — das
+kostet diesen Server auch beim tausendsten Abruf nichts. Eingeschaltet wird
+es, wenn die Bilder das Frontend verlassen sollen: Teilen, Vorschau in einer
+Nachricht, Steckbrief als PDF. Dann aber mit rund 10 MB je Bier rechnen.
+
+Die Referenzkoordinaten aus Phase F sind davon unabhängig — sie sind der
+Anker der Registrierung, nicht die Anzeige.
 
 ## Phase E — der Datenumzug (NEU)
 
-Die Bierdatenbank auf der Workstation enthält **genau ein Bier**. Was bei
-Hostpoint liegt, ist nicht übernommen. Vor der Abnahme von Phase B klären:
+Die Bierdatenbank auf der Workstation enthält **genau ein Bier** (einen
+Testeintrag). Bei Hostpoint liegen dagegen **7 Biere, 54 Elemente und 21
+Scans** — nachgesehen am 28.08. über `/api/gesundheit.php`. Vor der Abnahme von Phase B klären:
 Wird übernommen, oder fängt das Kompendium hier neu an? Die Schlüssel sind
 in beiden Datenbanken nach derselben Regel gebildet, ein Übertrag ist also
 möglich.
