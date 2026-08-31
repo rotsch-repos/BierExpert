@@ -76,6 +76,10 @@ function teilVereinheitlichen(string $text): string
         return '';
     }
 
+    // Das Ursprüngliche festhalten: Der Rückfall weiter unten braucht es
+    // noch, wenn der ASCII-Filter alles aufgezehrt hat.
+    $ursprung = $text;
+
     // Umlaute vor dem Kleinschreiben: "Ä" wird zu "Ae", nicht zu einem Byte,
     // das der Filter danach wegwirft.
     $text = strtr($text, [
@@ -100,6 +104,39 @@ function teilVereinheitlichen(string $text): string
     // sind. Erst danach zusammenziehen — "co" innerhalb von "rothaus" darf
     // nicht verschwinden.
     $woerter = preg_split('/[^a-z0-9]+/', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+    // Bleibt nichts übrig, war die Schrift nicht lateinisch.
+    //
+    // Der Filter oben kennt nur a-z0-9. Ein griechisches Etikett — "ΜΑΜΟΣ
+    // ΑΦΙΛΤΡΑΡΙΣΤΗ" — wird davon restlos aufgezehrt, und heraus kommt ein
+    // leerer Schlüssel. Ein leerer Schlüssel heisst für merken.php "kein
+    // Bier", und der Eintrag wird abgewiesen. Am 31.08. genau so passiert:
+    // Der Scan lief durch, Anthropic zerlegte, und das Ergebnis fiel in
+    // nichts. Zweimal. Damit konnte jedes Bier mit griechischem,
+    // kyrillischem, hebräischem oder japanischem Etikett grundsätzlich nie
+    // ins Kompendium kommen — jeder Scan bezahlt, nichts behalten.
+    //
+    // Also derselbe Schnitt noch einmal, nur mit Unicode-Buchstaben statt
+    // ASCII. Der Schlüssel heisst dann "μαμος" statt "mamos". Das ist kein
+    // Schönheitsfehler, sondern belanglos: Angezeigt wird er nie, er muss
+    // nur stabil und unterscheidbar sein.
+    //
+    // Bewusst NICHT über Transliterator (intl): Die Erweiterung fehlt auf
+    // der Workstation, und wäre sie auf der einen Seite da und auf der
+    // anderen nicht, bildeten beide verschiedene Schlüssel für dasselbe
+    // Bier. Dieser Weg rechnet überall gleich.
+    //
+    // Als Rückfall und nicht als Ersatz, damit die bestehenden Schlüssel
+    // Byte für Byte dieselben bleiben — sonst fände die Datenbank ihre
+    // eigenen Einträge nicht wieder.
+    if ($woerter === []) {
+        $woerter = preg_split(
+            '/[^\p{L}\p{N}]+/u',
+            mb_strtolower($ursprung, 'UTF-8'),
+            -1,
+            PREG_SPLIT_NO_EMPTY,
+        ) ?: [];
+    }
 
     $behalten = array_values(array_filter(
         $woerter,
