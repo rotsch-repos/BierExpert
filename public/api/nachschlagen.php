@@ -38,9 +38,25 @@ $dauer = static fn (): int => (int) ((hrtime(true) - $begonnen) / 1_000_000);
 
 $erkennung = erkennen($bild);
 
-$schluessel = $erkennung['ist_bier']
-    ? schluesselBilden($erkennung['brauerei'], $erkennung['name'])
-    : '';
+// Vor dem Abgelesenen gilt, was dieses Bild schon einmal war.
+//
+// Der Schlüssel aus dem Ablesen ist eine Schätzung: Ein Sprachmodell
+// antwortet nicht zweimal garantiert gleich, und schon eine anders gelesene
+// Brauerei ergibt einen anderen Schlüssel. Dasselbe Foto lief deshalb
+// zweimal ins Leere, kostete zweimal eine Zerlegung und legte zwei Einträge
+// für dasselbe Bier an — beobachtet am 31.08. („Rothaus-Bräu" einmal als
+// „Bolhaus Brau" gelesen).
+//
+// Die Prüfsumme ist keine Schätzung. Gleiche Bytes sind dasselbe Foto und
+// damit dasselbe Bier — unabhängig davon, was das Modell diesmal zu
+// erkennen glaubt. erweitert.php geht diesen Weg längst; hier fehlte er.
+$ausScan = bierZuScan($bild->pruefsumme);
+
+$schluessel = $ausScan !== null
+    ? $ausScan['schluessel']
+    : ($erkennung['ist_bier']
+        ? schluesselBilden($erkennung['brauerei'], $erkennung['name'])
+        : '');
 
 $gelesen = [
     'ist_bier' => $erkennung['ist_bier'],

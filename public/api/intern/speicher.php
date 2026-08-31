@@ -255,7 +255,7 @@ function bierSpeichern(
  * unter fremdem Namen ab. Die Prüfsumme dagegen errechnet der Server aus dem
  * Bild, das er selbst in Händen hält.
  *
- * @return array{id:int, brauerei:string, name:string, erweitert:?array}|null
+ * @return array{id:int, schluessel:string, brauerei:string, name:string, erweitert:?array}|null
  */
 function bierZuScan(string $pruefsumme): ?array
 {
@@ -269,7 +269,7 @@ function bierZuScan(string $pruefsumme): ?array
         // vorzuziehen, weil zwischenzeitlich eine bessere Auswertung
         // entstanden sein kann.
         $abfrage = $db->prepare(
-            'SELECT b.id, b.brauerei, b.name, b.erweitert
+            'SELECT b.id, b.schluessel, b.brauerei, b.name, b.erweitert
                FROM scans s
                JOIN biere b ON b.id = s.bier_id
               WHERE s.bild_pruefsumme = ?
@@ -285,6 +285,7 @@ function bierZuScan(string $pruefsumme): ?array
 
         return [
             'id' => (int) $zeile['id'],
+            'schluessel' => (string) $zeile['schluessel'],
             'brauerei' => (string) $zeile['brauerei'],
             'name' => (string) $zeile['name'],
             'erweitert' => jsonSpalte($zeile['erweitert']),
