@@ -6,6 +6,7 @@ import type { Bereich, Erweitert, Etikett, Etikettelement, Vermutung } from './s
 import { FAMILIEN, SORTEN, type Biersorte, type Familie } from './glossar';
 import { glasZeichnen } from './glas';
 import { schluesselVergessen } from './schluessel';
+import { kameraMoeglich, kameraOeffnen } from './kamera';
 import { ausEreignis, ausZwischenablage, ZwischenablageFehler } from './zwischenablage';
 
 /* ---------------------------------------------------------------- Elemente */
@@ -89,8 +90,24 @@ ablage.addEventListener('keydown', (e) => {
   }
 });
 
-// Auf dem Handy öffnet capture="environment" direkt die Kamera.
-fotoTaste.addEventListener('click', () => kameraFeld.click());
+// Erst die Kamera in der Seite mit ihrem Rahmen versuchen; ohne sie der
+// gewohnte Weg über die Kamera des Geräts. Eine Kamera, die sich nicht
+// öffnen lässt — abgelehnte Berechtigung, älterer Browser, Schreibtisch
+// ohne Webcam —, darf nicht bedeuten, dass gar kein Foto mehr geht.
+fotoTaste.addEventListener('click', () => {
+  void (async () => {
+    if (kameraMoeglich()) {
+      const aufnahme = await kameraOeffnen();
+
+      if (aufnahme !== null) {
+        await bildAnnehmen(aufnahme);
+        return;
+      }
+    }
+
+    kameraFeld.click();
+  })();
+});
 
 for (const feld of [dateiFeld, kameraFeld]) {
   feld.addEventListener('change', () => {

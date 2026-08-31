@@ -1016,3 +1016,78 @@ kbd {
   margin: var(--space-2) 0 0;
   color: var(--on-surface-variant);
 }
+
+/* ==========================================================================
+   Die Kamera in der Seite
+   ==========================================================================
+   Bildschirmfüllend und dunkel: Der Rahmen soll das Einzige sein, worauf
+   das Auge fällt, und ein heller Rand um ein Kamerabild macht jede
+   Beurteilung der Helligkeit unmöglich. */
+
+.kamera {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.kamera-bild {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* cover und nicht contain: Schwarze Balken neben dem Bild kosten genau
+     die Fläche, die der Rahmen braucht. Der Anschnitt wird beim Auslösen
+     nachgerechnet, damit Rahmen und Schnitt dasselbe meinen. */
+  object-fit: cover;
+}
+
+/* Der Rahmen selbst zeichnet nur seine Kante. Alles ausserhalb dunkelt ein
+   ausufernder Schatten ab — dieselbe Bauart wie die Markierung im Befund,
+   und aus demselben Grund: Der Blick geht dorthin, wo er hingehört. */
+.kamera-rahmen {
+  position: relative;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: var(--rounded-lg);
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.kamera-anleitung {
+  position: absolute;
+  top: max(var(--space-3), env(safe-area-inset-top));
+  left: var(--space-3);
+  right: var(--space-3);
+  margin: 0;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.kamera-tasten {
+  position: absolute;
+  bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  left: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+/* Auf Schwarz taugt der gewohnte Sekundärstil nicht: Er ist für hellen
+   Untergrund gedacht und verschwindet hier fast vollständig. Deshalb hier
+   eigene Farben — die einzige Stelle, an der die Tasten aus der Reihe
+   tanzen dürfen, weil sie als einzige nicht auf dem Papier der Seite
+   liegen. */
+.kamera-tasten .taste-sekundaer {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.kamera-tasten .taste-sekundaer:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
