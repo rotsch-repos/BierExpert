@@ -201,14 +201,31 @@ Nachricht, Steckbrief als PDF. Dann aber mit rund 10 MB je Bier rechnen.
 Die Referenzkoordinaten aus Phase F sind davon unabhängig — sie sind der
 Anker der Registrierung, nicht die Anzeige.
 
-## Phase E — der Datenumzug (NEU)
+## Phase E — der Datenumzug (entschieden am 31.08., erledigt)
 
-Die Bierdatenbank auf der Workstation enthält **genau ein Bier** (einen
-Testeintrag). Bei Hostpoint liegen dagegen **7 Biere, 54 Elemente und 21
-Scans** — nachgesehen am 28.08. über `/api/gesundheit.php`. Vor der Abnahme von Phase B klären:
-Wird übernommen, oder fängt das Kompendium hier neu an? Die Schlüssel sind
-in beiden Datenbanken nach derselben Regel gebildet, ein Übertrag ist also
-möglich.
+**So entschieden: kein Übertrag. Das Kompendium fängt auf der Workstation neu
+an.** Roger hat alle bis dahin vorhandenen Biere löschen lassen; die
+Workstation-Datenbank startet leer. Eine Sicherung des alten Standes liegt
+unter `~/backups/bierexpert-db-20260831-093545.sql`.
+
+Der Grund, warum das billig ist: Ein Bier kostet genau einmal eine Zerlegung.
+Am 31.08. über PROD gemessen, mit leerem Kompendium:
+
+- erster Scan eines unbekannten Biers — 40,9 s, eine Anthropic-Zerlegung,
+  danach liegt es samt Referenzfoto und Elementkoordinaten auf der Workstation
+- zweiter Scan desselben Fotos — 701 ms, `quelle: speicher`, null Credits
+
+Ein Übertrag hätte also höchstens die 7 alten Einträge gespart, dafür aber
+Zerlegungen aus einer älteren Modellfassung mitgeschleppt.
+
+**Die 7 Biere bei Hostpoint bleiben liegen, und das ist Absicht.** Seit die
+Kette steht, fasst der Dirigent seine eigene Datenbank im Normalbetrieb nicht
+mehr an: Der `dienstAktiv()`-Zweig in `public/api/etikett.php` kennt nur
+`dienstFragen`, während `bierLaden`/`bierSpeichern` allein im Rückfall-Zweig
+darunter stehen. Die alten Einträge sind damit kein toter Ballast, sondern
+der Notvorrat für den Fall, dass die Workstation nicht erreichbar ist — dann
+antwortet Hostpoint aus eigener Kraft, statt für jeden Scan neu zu zahlen.
+Sie zu löschen würde dieses Netz entfernen und nichts gewinnen.
 
 ## Nicht anfassen
 
