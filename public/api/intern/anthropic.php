@@ -265,20 +265,28 @@ function anthropicStatusFehler(int $status, string $rumpf): BierFehler
 }
 
 /**
- * Welcher Schlüssel gilt: der persönliche aus der Anfrage vor dem des
- * Servers.
+ * Welcher Schlüssel gilt: der des Servers vor dem aus der Anfrage.
  *
- * Der persönliche kommt als Kopfzeile aus dem Browser des Benutzers — so
- * wertet genau eine Person auf ihre Rechnung aus, ohne dass der Schlüssel
- * je auf dem Server liegt. Er wird nur durchgereicht, nie gespeichert und
- * nie protokolliert. Der Server-Schlüssel bleibt als Betreiber-Variante
- * bestehen: Ist er gesetzt, zahlt der Betreiber für alle.
+ * Diese Reihenfolge stand einmal andersherum, und das war ein Fehler mit
+ * Ansage. Ein Browser, der einmal einen persönlichen Schlüssel hinterlegt
+ * hat, schickt ihn weiter mit — auch lange nachdem er in der Console
+ * widerrufen wurde. Er überstimmte damit den gültigen Schlüssel des
+ * Servers, und der Leser bekam "Der Anthropic-Schlüssel wurde abgewiesen"
+ * für ein Geheimnis, das er längst vergessen hatte. Wer eine alte Fassung
+ * der Seite im Zwischenspeicher hat, kam aus dieser Schleife nicht heraus.
+ *
+ * Hat der Betreiber einen Schlüssel hinterlegt, gilt also seiner: Er zahlt
+ * dann ohnehin für alle, und der persönliche brächte niemandem etwas.
+ *
+ * Für eine Anlage OHNE eigenen Schlüssel bleibt die Kopfzeile, was sie war
+ * — der einzige Weg, überhaupt etwas auszuwerten. Sie wird nur
+ * durchgereicht, nie gespeichert und nie protokolliert.
  */
 function anthropicSchluessel(array $llm): string
 {
-    $kopf = trim((string) ($_SERVER['HTTP_X_ANTHROPIC_SCHLUESSEL'] ?? ''));
-    if ($kopf !== '') {
-        return $kopf;
+    $eigener = trim((string) $llm['anthropic_schluessel']);
+    if ($eigener !== '') {
+        return $eigener;
     }
-    return $llm['anthropic_schluessel'];
+    return trim((string) ($_SERVER['HTTP_X_ANTHROPIC_SCHLUESSEL'] ?? ''));
 }
