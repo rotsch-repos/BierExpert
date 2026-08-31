@@ -114,10 +114,23 @@ jobs:
           # Die Brücke über die Anthropic-API: LLM_ANBIETER=anthropic
           # schaltet um, der Schlüssel kommt aus der Console.
           LLM_ANBIETER: ${{ vars.LLM_ANBIETER }}
+          # Je Stufe ein eigener Anbieter, sonst gilt LLM_ANBIETER für beide.
+          LLM_ANBIETER_SCHNELL: ${{ vars.LLM_ANBIETER_SCHNELL }}
+          LLM_ANBIETER_TIEF: ${{ vars.LLM_ANBIETER_TIEF }}
+          LLM_ZEITGRENZE: ${{ vars.LLM_ZEITGRENZE }}
+          LLM_ZEITGRENZE_SCHNELL: ${{ vars.LLM_ZEITGRENZE_SCHNELL }}
           ANTHROPIC_SCHLUESSEL: ${{ secrets.ANTHROPIC_SCHLUESSEL }}
           ANTHROPIC_MODELL: ${{ vars.ANTHROPIC_MODELL }}
           ANTHROPIC_MODELL_SCHNELL: ${{ vars.ANTHROPIC_MODELL_SCHNELL }}
           ANTHROPIC_AUFWAND: ${{ vars.ANTHROPIC_AUFWAND }}
+          # Der Nachschlage-Dienst auf der Workstation. Ohne diese zwei Zeilen
+          # bleibt dienst.adresse auf dem Server leer — dienstAktiv() ist dann
+          # false, und der Dirigent geht still an der Workstation vorbei
+          # direkt auf die bezahlte API. Genau das ist am 31.08. passiert:
+          # DIENST_ADRESSE war in GitHub hinterlegt, konfiguration.sh liest
+          # sie auch, nur reichte der Workflow sie nie hinein.
+          DIENST_ADRESSE: ${{ vars.DIENST_ADRESSE }}
+          DIENST_SCHLUESSEL: ${{ secrets.DIENST_SCHLUESSEL }}
         run: ./deploy/konfiguration.sh
 
       - name: Ausliefern
