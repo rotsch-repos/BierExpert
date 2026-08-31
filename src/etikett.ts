@@ -20,7 +20,6 @@ import type { AufbereitetesBild } from './bild';
 /** Zur Entwicklung gegen einen anderen Server: VITE_API_BASIS in .env.local. */
 const API_BASIS: string = import.meta.env['VITE_API_BASIS'] ?? '/api';
 
-import { schluesselLesen } from './schluessel';
 
 /**
  * Ein Aufruf darf nicht ewig hängen.
@@ -126,13 +125,7 @@ async function fragen(pfad: string, bild: AufbereitetesBild): Promise<Record<str
 
   let antwort: Response;
   try {
-    // Liegt in der Kammer ein persönlicher Anthropic-Schlüssel, geht er
-    // als Kopfzeile mit — der Server reicht ihn nur durch.
     const kopf: Record<string, string> = { 'Content-Type': 'application/json' };
-    const schluessel = schluesselLesen();
-    if (schluessel !== '') {
-      kopf['X-Anthropic-Schluessel'] = schluessel;
-    }
     antwort = await fetch(`${API_BASIS}/${pfad}`, {
       method: 'POST',
       headers: kopf,
@@ -222,10 +215,6 @@ async function fragenAlsStrom(
       'Content-Type': 'application/json',
       Accept: 'application/x-ndjson',
     };
-    const schluessel = schluesselLesen();
-    if (schluessel !== '') {
-      kopf['X-Anthropic-Schluessel'] = schluessel;
-    }
 
     let antwort: Response;
     try {
@@ -256,34 +245,50 @@ async function fragenAlsStrom(
     let rest = '';
     let letzte: Record<string, unknown> | null = null;
 
-    for (;;) {
-      const { done, value } = await leser.read();
-      if (done) break;
+    // Der Leser braucht denselben Schutz wie der fetch davor. Reisst die
+    // Verbindung NACH dem ersten Byte — ein Funkloch, ein Wechsel ins
+    // Mobilnetz, eine Zwischenstelle, die eine lange Antwort kappt —, dann
+    // wirft read() den nackten Fehler des Browsers. Der hiess in WebKit
+    // "Load failed" und stand ungefiltert vor dem Leser: englisch, ohne
+    // Rat, und ohne Hinweis darauf, dass ein zweiter Versuch genügt.
+    try {
+      for (;;) {
+        const { done, value } = await leser.read();
+        if (done) break;
 
-      rest += entpacker.decode(value, { stream: true });
+        rest += entpacker.decode(value, { stream: true });
 
-      // Nur bis zum letzten Zeilenumbruch: Was danach kommt, ist eine
-      // angefangene Zeile. Sie jetzt zu parsen hiesse, ein halbes JSON zu
-      // lesen — der Rest wartet auf das nächste Stück.
-      const zeilen = rest.split('\n');
-      rest = zeilen.pop() ?? '';
+        // Nur bis zum letzten Zeilenumbruch: Was danach kommt, ist eine
+        // angefangene Zeile. Sie jetzt zu parsen hiesse, ein halbes JSON zu
+        // lesen — der Rest wartet auf das nächste Stück.
+        const zeilen = rest.split('\n');
+        rest = zeilen.pop() ?? '';
 
-      for (const zeile of zeilen) {
-        if (zeile.trim() === '') continue;
+        for (const zeile of zeilen) {
+          if (zeile.trim() === '') continue;
 
-        let ereignis: unknown;
-        try {
-          ereignis = JSON.parse(zeile);
-        } catch {
-          // Eine unlesbare Zwischenzeile ist kein Grund, den ganzen Scan
-          // wegzuwerfen — es zählt die letzte.
-          continue;
+          let ereignis: unknown;
+          try {
+            ereignis = JSON.parse(zeile);
+          } catch {
+            // Eine unlesbare Zwischenzeile ist kein Grund, den ganzen Scan
+            // wegzuwerfen — es zählt die letzte.
+            continue;
+          }
+
+          if (!ereignis || typeof ereignis !== 'object') continue;
+          letzte = ereignis as Record<string, unknown>;
+          aufEreignis(letzte as unknown as Stromereignis);
         }
-
-        if (!ereignis || typeof ereignis !== 'object') continue;
-        letzte = ereignis as Record<string, unknown>;
-        aufEreignis(letzte as unknown as Stromereignis);
       }
+    } catch (fehler) {
+      // Eine Zeile, die schon durch war, bleibt gültig: Kam die Auswertung
+      // bereits vollständig an und bricht erst das Schliessen der
+      // Verbindung, wäre es falsch, den fertigen Befund wegzuwerfen.
+      if (letzte !== null && typeof letzte['fehler'] !== 'string' && letzte['stufe'] === 'fertig') {
+        return letzte;
+      }
+      throw netzfehler(fehler);
     }
 
     if (letzte === null) {

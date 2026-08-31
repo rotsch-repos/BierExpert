@@ -5,8 +5,8 @@ import { braumeister } from './braumeister';
 import type { Bereich, Erweitert, Etikett, Etikettelement } from './schema';
 import { FAMILIEN, SORTEN, type Biersorte, type Familie } from './glossar';
 import { glasZeichnen } from './glas';
+import { schluesselVergessen } from './schluessel';
 import { ausEreignis, ausZwischenablage, ZwischenablageFehler } from './zwischenablage';
-import { kammerVerdrahten } from './schluessel';
 
 /* ---------------------------------------------------------------- Elemente */
 
@@ -196,8 +196,19 @@ lesenTaste.addEventListener('click', async () => {
     befundZeichnen(auswertung, erweitertVersprechen);
   } catch (fehler) {
     if (lauf !== laufNummer) return;
-    const f = fehler as EtikettFehler;
-    zeigeFehler(f.message ?? 'Unbekannter Fehler', f.rat);
+    // Nur die eigenen Fehler tragen einen Text, der für den Leser gedacht
+    // ist. Ein durchgereichter Browser-Fehler tut das nicht: Er stand hier
+    // als blosses "Load failed" — englisch, ohne Rat, ohne Zusammenhang.
+    // Deshalb wird geprüft und nicht blind gecastet.
+    if (fehler instanceof EtikettFehler) {
+      zeigeFehler(fehler.message, fehler.rat);
+    } else {
+      zeigeFehler(
+        'Die Auswertung ist unterwegs abgebrochen.',
+        'Meist genügt ein zweiter Versuch. Bleibt es dabei, steht in der ' +
+          'Entwicklerkonsole des Browsers die genaue Ursache.',
+      );
+    }
   } finally {
     laeuft = false;
     lesenTaste.disabled = false;
@@ -1102,4 +1113,4 @@ function ausHash(): SichtName {
 window.addEventListener('hashchange', () => sichtZeigen(ausHash(), true));
 sichtZeigen(ausHash());
 
-kammerVerdrahten();
+schluesselVergessen();

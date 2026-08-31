@@ -1,63 +1,28 @@
 /**
- * Die Schlüsselkammer: der persönliche Anthropic-Schlüssel.
+ * Räumt den persönlichen Anthropic-Schlüssel aus dem Browser.
  *
- * Er bleibt in DIESEM Browser (Local Storage) und reist nur als Kopfzeile
- * mit den eigenen Anfragen — auf dem Server wird er weder gespeichert noch
- * protokolliert. So kann genau eine Person auf ihre Rechnung auswerten
- * lassen, ohne dass jeder Besucher der Seite es könnte.
+ * Bis zum 31.08. konnte jeder Besucher hier einen eigenen Schlüssel
+ * hinterlegen; er ging als Kopfzeile mit jeder Anfrage mit. Das war nötig,
+ * solange der Server keinen eigenen hatte. Seit ANTHROPIC_SCHLUESSEL als
+ * Secret beim Deploy ankommt, hat er einen — die Kammer ist damit nicht nur
+ * überflüssig, sondern schädlich: Ein alter, längst widerrufener Schlüssel
+ * im localStorage überstimmt den funktionierenden auf dem Server, und der
+ * Scan scheitert an einem Schlüssel, den der Leser vergessen hat.
  *
- * Der Zugriff auf localStorage steht in try/catch: In privaten Fenstern
- * oder bei blockierten Website-Daten wirft schon das Lesen — dann verhält
- * sich die Kammer wie leer, statt die Seite zu reissen.
+ * Deshalb wird der Eintrag beim Start aktiv entfernt statt nur nicht mehr
+ * gelesen. Ihn liegen zu lassen hiesse, ein totes Geheimnis in fremden
+ * Browsern aufzubewahren — ohne Oberfläche, es je wieder loszuwerden.
  */
 
+// Muss buchstabengetreu der Name sein, unter dem die Kammer abgelegt hat —
+// sonst räumt das Vergessen an der Stelle vorbei, an der etwas liegt.
 const ABLAGE = 'bierexpert-anthropic-schluessel';
 
-export function schluesselLesen(): string {
+export function schluesselVergessen(): void {
   try {
-    return localStorage.getItem(ABLAGE) ?? '';
+    localStorage.removeItem(ABLAGE);
   } catch {
-    return '';
+    // Private Fenster und Browser, die Websitedaten sperren, werfen hier.
+    // Ist der Zugriff versperrt, gibt es auch nichts aufzuräumen.
   }
-}
-
-function schluesselSchreiben(wert: string): void {
-  try {
-    if (wert === '') {
-      localStorage.removeItem(ABLAGE);
-    } else {
-      localStorage.setItem(ABLAGE, wert);
-    }
-  } catch {
-    // Ohne Ablage bleibt der Schlüssel für diese Sitzung im Feld — die
-    // Anfragen dieser Seite tragen ihn trotzdem.
-  }
-}
-
-/** Verbindet Feld, Taste und Standanzeige der Kammer. */
-export function kammerVerdrahten(): void {
-  const feld = document.getElementById('schluessel') as HTMLInputElement | null;
-  const taste = document.getElementById('schluessel-speichern');
-  const stand = document.getElementById('schluessel-stand');
-  if (!feld || !taste || !stand) return;
-
-  const anzeigen = (): void => {
-    const wert = schluesselLesen();
-    // Der Schlüssel selbst erscheint nirgends — nur, OB einer da ist.
-    stand.textContent = wert === '' ? 'Kein Schlüssel hinterlegt.' : 'Schlüssel hinterlegt.';
-  };
-
-  taste.addEventListener('click', () => {
-    schluesselSchreiben(feld.value.trim());
-    feld.value = '';
-    anzeigen();
-  });
-  feld.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      (taste as HTMLButtonElement).click();
-    }
-  });
-
-  anzeigen();
 }
