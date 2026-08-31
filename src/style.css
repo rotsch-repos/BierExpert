@@ -76,6 +76,17 @@ body::before {
 .wortmarke { display: block; margin: 0; color: var(--primary); }
 .kopf-devise { display: block; margin-top: 2px; color: var(--on-surface-variant); }
 
+/* Der Vermerk im Kopf. Bewusst in der Zweitfarbe und nicht in der Fehlerfarbe:
+   Er meldet keinen Zustand, der Sorge macht, sondern sagt nur, welcher Stand
+   gerade läuft. */
+.kopf-vermerk {
+  padding: 4px var(--space-1);
+  border-radius: var(--rounded-full);
+  background-color: var(--secondary-container);
+  color: var(--on-secondary-container);
+  white-space: nowrap;
+}
+
 .hauptmenue { display: flex; gap: var(--space-1); }
 
 .menuepunkt {
