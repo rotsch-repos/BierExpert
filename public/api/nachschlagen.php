@@ -28,8 +28,15 @@ nurPost();
 dienstSchluesselPruefen();
 
 $begonnen = hrtime(true);
-$bild = bildAusRumpf(rumpfLesen());
+$rumpf = rumpfLesen();
+$bild = bildAusRumpf($rumpf);
 $llm = konfiguration()['llm'];
+
+// Hat der Leser eine Rückfrage mit "ja" beantwortet, steht hier die Kennung
+// des Biers, das er bestätigt hat. Sie kommt aus einer Antwort, die dieser
+// Dienst selbst geschickt hat — trotzdem wird sie nur als Zahl genommen und
+// gegen die Datenbank geprüft, nie als Behauptung übernommen.
+$bestaetigt = (int) ($rumpf['bestaetigt_id'] ?? 0);
 
 /** Vergangene Zeit in Millisekunden. */
 $dauer = static fn (): int => (int) ((hrtime(true) - $begonnen) / 1_000_000);
@@ -73,11 +80,61 @@ $bildDatei = bildAblegen($bild);
 
 /* --- Nachschlagen --------------------------------------------------------- */
 
-$treffer = bierLaden($schluessel);
+$treffer = $schluessel !== '' ? bierLaden($schluessel) : null;
+
+$taugt = static fn (?array $t): bool => $t !== null && $t['etikett']['elemente'] !== [];
+
+// Hat der Leser bestätigt, gilt seine Antwort vor allem anderen. Er hat das
+// Etikett und das Referenzfoto nebeneinander gesehen — kein Signal hier ist
+// so gut wie das.
+if (!$taugt($treffer) && $bestaetigt > 0) {
+    $bestaetigtesBier = bierNachKennung($bestaetigt);
+
+    if ($bestaetigtesBier !== null) {
+        $treffer = bierLaden($bestaetigtesBier['schluessel']);
+        $schluessel = $bestaetigtesBier['schluessel'];
+
+        // Dieses Foto gehört ab jetzt zu diesem Bier. Damit greift beim
+        // nächsten Mal schon die Prüfsumme, und es wird nie wieder gefragt.
+        if ($taugt($treffer) && $bildDatei !== null) {
+            bildZuBierNachtragen($bild->pruefsumme, $bestaetigtesBier['id']);
+        }
+    }
+}
+
+/* --- Kein Treffer über den Schlüssel: die drei Signale befragen ------------ */
+
+$vermutung = null;
+
+// Eine ausdrückliche Ablehnung (-1) überspringt diese Stufe: Der Leser hat
+// die Frage schon gesehen und verneint. Sie ihm ein zweites Mal zu stellen
+// wäre keine Vorsicht mehr, sondern Sturheit.
+if (!$taugt($treffer) && $bestaetigt >= 0 && $erkennung['ist_bier'] && $bildDatei !== null) {
+    $neuPfad = konfiguration()['bilder']['verzeichnis'] . '/' . $bildDatei;
+    $eigene = signaturBerechnen($neuPfad);
+
+    $vermutung = bierWiedererkennen(
+        $eigene !== null ? $eigene['signatur'] : null,
+        $neuPfad,
+        $erkennung,
+    );
+
+    // Sicher genug: als gewöhnlicher Treffer weiterbehandeln, ohne zu fragen.
+    if ($vermutung !== null && $vermutung['wahrscheinlichkeit'] >= WIEDERERKENNUNG_SICHER) {
+        $treffer = bierLaden($vermutung['bier']['schluessel']);
+
+        if ($taugt($treffer)) {
+            $schluessel = $vermutung['bier']['schluessel'];
+            bildZuBierNachtragen($bild->pruefsumme, $vermutung['bier']['id']);
+        }
+
+        $vermutung = null;
+    }
+}
 
 // Ein Eintrag ohne Elemente ist ein Torso aus einem Aufruf, der nur die
 // erweiterte Sicht geholt hat. Für die Zerlegung taugt er nicht.
-if ($treffer === null || $treffer['etikett']['elemente'] === []) {
+if (!$taugt($treffer)) {
     scanProtokollieren([
         'pruefsumme' => $bild->pruefsumme,
         'bild_datei' => $bildDatei,
@@ -89,7 +146,7 @@ if ($treffer === null || $treffer['etikett']['elemente'] === []) {
         'modell' => $llm['modell_schnell'],
     ]);
 
-    antwortSenden(200, [
+    antwortSenden(200, array_filter([
         'gefunden' => false,
         'gelesen' => $gelesen,
         // Der Schlüssel geht mit, damit der Dirigent das Ergebnis seiner
@@ -99,7 +156,26 @@ if ($treffer === null || $treffer['etikett']['elemente'] === []) {
         'schluessel' => $schluessel,
         'pruefsumme' => $bild->pruefsumme,
         'dauer_ms' => $dauer(),
-    ]);
+
+        // Der dritte Zustand: nicht sicher genug für einen Treffer, zu gut
+        // für ein Achselzucken. Statt zu raten oder zu zahlen, wird gefragt
+        // — mit dem Referenzfoto daneben, damit der Leser vergleichen kann
+        // statt glauben zu müssen.
+        //
+        // Der Dirigent reicht das unverändert an den Browser durch und
+        // bemüht die bezahlte API erst, wenn die Antwort "nein" lautet.
+        'vermutung' => $vermutung !== null ? [
+            'id' => $vermutung['bier']['id'],
+            'brauerei' => $vermutung['bier']['brauerei'],
+            'name' => $vermutung['bier']['name'],
+            'wahrscheinlichkeit' => round($vermutung['wahrscheinlichkeit'], 2),
+            'wie' => $vermutung['wie'],
+            'leitfarben' => $vermutung['bier']['leitfarben'] ?? [],
+            'bild' => $vermutung['bier']['referenz_bild'] !== null
+                ? bildAdresseBauen($vermutung['bier']['referenz_bild'])
+                : '',
+        ] : null,
+    ], static fn ($wert): bool => $wert !== null));
 }
 
 /* --- Treffer: die Elemente in DIESEM Foto wiederfinden --------------------- */

@@ -203,3 +203,21 @@ function bildEndung(string $medienTyp): string
         default => '.jpg',
     };
 }
+
+/**
+ * Die öffentliche Adresse einer aufbewahrten Bilddatei.
+ *
+ * Leer, wenn keine Basisadresse eingerichtet ist — dann sind die Fotos zwar
+ * da, aber von aussen nicht erreichbar, und eine Adresse ins Leere wäre
+ * schlimmer als gar keine.
+ */
+function bildAdresseBauen(string $datei): string
+{
+    $basis = konfiguration()['bilder']['basis_url'];
+
+    if ($basis === '' || $datei === '') {
+        return '';
+    }
+
+    return rtrim($basis, '/') . '/' . rawurlencode($datei);
+}

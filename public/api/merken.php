@@ -67,6 +67,23 @@ if ($kennung === null) {
 // ausgerechnet beim ersten Mal leer.
 bildZuBierNachtragen((string) ($rumpf['pruefsumme'] ?? ''), $kennung);
 
+// Die Farbsignatur des Referenzfotos — hier und nirgends sonst, denn hier
+// steht fest, welches Foto von nun an für dieses Bier steht.
+//
+// Ohne sie wäre das Bier für die Wiedererkennung halb blind: Es liesse sich
+// nur noch über den abgelesenen Namen finden, und genau darauf ist kein
+// Verlass. Scheitert die Rechnung, ist das kein Grund, den Eintrag
+// abzulehnen — die Suche fällt für dieses Bier auf den alten Weg zurück.
+if ($referenzBild !== '') {
+    $signatur = signaturBerechnen(
+        konfiguration()['bilder']['verzeichnis'] . '/' . $referenzBild,
+    );
+
+    if ($signatur !== null) {
+        signaturSpeichern($kennung, $signatur['signatur'], $signatur['farben']);
+    }
+}
+
 // Die Einzeichnungen: je Element das Referenzfoto mit einem Rahmen darum.
 // Genau hier und nirgends sonst — es ist der eine Augenblick, in dem ein
 // Bier neu in die Datenbank kommt. Alles Spätere liest nur noch.

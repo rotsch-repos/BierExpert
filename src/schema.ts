@@ -214,3 +214,24 @@ export const ErweitertSchema = z.object({
 });
 
 export type Erweitert = z.infer<typeof ErweitertSchema>;
+
+/**
+ * Die Rückfrage des Servers: "Ist es womöglich dieses Bier?"
+ *
+ * Kein Modellergebnis, sondern das Ergebnis einer Suche über drei Signale —
+ * Farbsignatur, abgelesener Name und Bildregistrierung. Sie kommt nur,
+ * wenn keines davon allein reicht und alle zusammen zu gut sind, um das
+ * Bier als unbekannt zu behandeln.
+ */
+export const VermutungSchema = z.object({
+  id: z.number().int().positive(),
+  brauerei: z.string(),
+  name: z.string(),
+  /** 0 bis 1. Wird als Prozent angezeigt, damit der Leser das Gewicht sieht. */
+  wahrscheinlichkeit: z.number().min(0).max(1),
+  leitfarben: z.array(z.string()).default([]),
+  /** Das gespeicherte Referenzfoto — leer, wenn keines erreichbar ist. */
+  bild: z.string().default(''),
+});
+
+export type Vermutung = z.infer<typeof VermutungSchema>;

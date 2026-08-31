@@ -174,3 +174,74 @@ function registrierungAufraeumen(string $pfad, Bild $bild): void
         @unlink($pfad);
     }
 }
+
+/**
+ * Wie gut passen zwei Fotos desselben Etiketts zueinander — als blosse Zahl.
+ *
+ * Dasselbe Skript, derselbe Merkmalsvergleich wie bei
+ * registrierungVersuchen(), nur ohne Rahmen: Gefragt ist hier nicht "wo
+ * liegt das Element", sondern "ist das überhaupt dieselbe Flasche". Das
+ * Skript rechnet die Abbildung ohnehin, bevor es Rahmen abbildet — die
+ * leere Rahmenliste kostet also nichts und erspart einen zweiten Helfer,
+ * der auseinanderlaufen könnte.
+ *
+ * Beide Pfade zeigen auf Dateien, die schon auf der Platte liegen: das
+ * Referenzfoto im Bilderverzeichnis, das neue dort ebenfalls, weil
+ * nachschlagen.php es vor der Suche aufbewahrt. Es entstehen keine
+ * Zwischendateien, und das zählt: Bei mehreren Kandidaten liefe der
+ * Vergleich sonst mehrfach über dieselbe Schreiberei.
+ *
+ * @return float 0.0 bis 1.0 — 0.0 auch dann, wenn gar nicht gerechnet
+ *               werden konnte. Ein Nichtwissen ist hier dasselbe wie ein
+ *               Nichtpassen: In beiden Fällen darf dieses Bier nicht allein
+ *               aufgrund dieser Zahl gewinnen.
+ */
+function registrierungVertrauen(string $referenzPfad, string $neuPfad): float
+{
+    $einstellung = konfiguration()['registrierung'];
+
+    if ($einstellung['python'] === '' || $einstellung['skript'] === '') {
+        return 0.0;
+    }
+
+    if (!is_file($referenzPfad) || !is_file($neuPfad)) {
+        return 0.0;
+    }
+
+    static $leer = null;
+
+    if ($leer === null) {
+        $leer = tempnam(sys_get_temp_dir(), 'bierexpert-leer-');
+
+        if ($leer === false) {
+            $leer = null;
+
+            return 0.0;
+        }
+
+        file_put_contents($leer, '[]');
+    }
+
+    $befehl = sprintf(
+        '%s %s %s %s %s 2>/dev/null',
+        escapeshellcmd($einstellung['python']),
+        escapeshellarg($einstellung['skript']),
+        escapeshellarg($referenzPfad),
+        escapeshellarg($neuPfad),
+        escapeshellarg($leer),
+    );
+
+    exec($befehl, $ausgabe, $stand);
+
+    if ($stand !== 0 || $ausgabe === []) {
+        return 0.0;
+    }
+
+    $antwort = json_decode(implode('', $ausgabe), true);
+
+    if (!is_array($antwort) || !is_numeric($antwort['vertrauen'] ?? null)) {
+        return 0.0;
+    }
+
+    return max(0.0, min(1.0, (float) $antwort['vertrauen']));
+}

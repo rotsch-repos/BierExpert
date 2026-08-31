@@ -1,4 +1,11 @@
-import { ErweitertSchema, EtikettSchema, type Erweitert, type Etikett } from './schema';
+import {
+  ErweitertSchema,
+  EtikettSchema,
+  VermutungSchema,
+  type Erweitert,
+  type Etikett,
+  type Vermutung,
+} from './schema';
 import type { AufbereitetesBild } from './bild';
 
 /**
@@ -73,6 +80,7 @@ export interface Stromereignis {
     | 'verorten'
     | 'auswertung'
     | 'puls'
+    | 'vermutung'
     | 'fertig'
     | 'fehler';
   /** Bei 'erkannt' und 'gefunden': was bereits feststeht. */
@@ -95,15 +103,34 @@ export interface Stromereignis {
  * — dieselbe Anwendung läuft schliesslich auch dort, wo ein Strom nichts
  * nützt.
  */
+export type Lesung =
+  | { art: 'befund'; auswertung: Auswertung<Etikett> }
+  | { art: 'vermutung'; vermutung: Vermutung };
+
 export async function etikettLesen(
   bild: AufbereitetesBild,
   aufEreignis?: (ereignis: Stromereignis) => void,
-): Promise<Auswertung<Etikett>> {
+  bestaetigtId = 0,
+): Promise<Lesung> {
   const antwort = aufEreignis
-    ? await fragenAlsStrom('etikett.php', bild, aufEreignis)
-    : await fragen('etikett.php', bild);
+    ? await fragenAlsStrom('etikett.php', bild, aufEreignis, bestaetigtId)
+    : await fragen('etikett.php', bild, bestaetigtId);
 
-  return auspacken(antwort, 'etikett', EtikettSchema, 'Die Etikettzerlegung');
+  // Der Server ist sich nicht sicher und fragt zurück. Das ist kein
+  // Fehlschlag, sondern ein eigener Ausgang — und er steht deshalb im Typ,
+  // statt vom Aufrufer aus einem fehlenden Feld erschlossen zu werden.
+  if (antwort['vermutung'] !== undefined && antwort['vermutung'] !== null) {
+    const geprueft = VermutungSchema.safeParse(antwort['vermutung']);
+
+    if (geprueft.success && geprueft.data !== undefined) {
+      return { art: 'vermutung', vermutung: geprueft.data };
+    }
+  }
+
+  return {
+    art: 'befund',
+    auswertung: auspacken(antwort, 'etikett', EtikettSchema, 'Die Etikettzerlegung'),
+  };
 }
 
 /**
@@ -118,8 +145,31 @@ export async function erweitertLesen(bild: AufbereitetesBild): Promise<Auswertun
   return auspacken(antwort, 'erweitert', ErweitertSchema, 'Die erweiterte Sicht');
 }
 
+/**
+ * Der Anfragerumpf.
+ *
+ * bestaetigt_id geht nur mit, wenn der Leser eine Rückfrage bejaht hat. Ohne
+ * Antwort keine Kennung: Eine mitgeschickte Null wäre eine Aussage über ein
+ * Bier, die niemand getroffen hat.
+ */
+function rumpfBauen(bild: AufbereitetesBild, bestaetigtId: number): Record<string, unknown> {
+  const rumpf: Record<string, unknown> = { bild: bild.base64, typ: bild.medienTyp };
+
+  // Positiv: "ja, dieses Bier". Negativ: "nein, keines" — beides ist eine
+  // Antwort und muss mit. Nur die Null bedeutet "nicht gefragt worden".
+  if (bestaetigtId !== 0) {
+    rumpf['bestaetigt_id'] = bestaetigtId;
+  }
+
+  return rumpf;
+}
+
 /** Schickt das Bild und gibt die geparste Antwort zurück. */
-async function fragen(pfad: string, bild: AufbereitetesBild): Promise<Record<string, unknown>> {
+async function fragen(
+  pfad: string,
+  bild: AufbereitetesBild,
+  bestaetigtId = 0,
+): Promise<Record<string, unknown>> {
   const abbruch = new AbortController();
   const uhr = setTimeout(() => abbruch.abort(), ZEITGRENZE_MS);
 
@@ -129,7 +179,7 @@ async function fragen(pfad: string, bild: AufbereitetesBild): Promise<Record<str
     antwort = await fetch(`${API_BASIS}/${pfad}`, {
       method: 'POST',
       headers: kopf,
-      body: JSON.stringify({ bild: bild.base64, typ: bild.medienTyp }),
+      body: JSON.stringify(rumpfBauen(bild, bestaetigtId)),
       signal: abbruch.signal,
     });
   } catch (fehler) {
@@ -206,6 +256,7 @@ async function fragenAlsStrom(
   pfad: string,
   bild: AufbereitetesBild,
   aufEreignis: (ereignis: Stromereignis) => void,
+  bestaetigtId = 0,
 ): Promise<Record<string, unknown>> {
   const abbruch = new AbortController();
   const uhr = setTimeout(() => abbruch.abort(), ZEITGRENZE_MS);
@@ -221,7 +272,7 @@ async function fragenAlsStrom(
       antwort = await fetch(`${API_BASIS}/${pfad}`, {
         method: 'POST',
         headers: kopf,
-        body: JSON.stringify({ bild: bild.base64, typ: bild.medienTyp }),
+        body: JSON.stringify(rumpfBauen(bild, bestaetigtId)),
         signal: abbruch.signal,
       });
     } catch (fehler) {

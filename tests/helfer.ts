@@ -25,6 +25,8 @@ export interface Beobachtung {
   medienTyp: string;
   /** Der persönliche Anthropic-Schlüssel aus der Kopfzeile, falls einer mitging. */
   schluessel: string | null;
+  /** Die Antwort des Lesers auf eine Rückfrage: >0 ja, -1 nein, 0 nicht gefragt. */
+  bestaetigtId: number;
 }
 
 export interface MockOptionen {
@@ -38,6 +40,14 @@ export interface MockOptionen {
   ausSpeicher?: boolean;
   /** Fotos, die der Server zu diesem Bier aufbewahrt hat. */
   bilder?: string[];
+  /**
+   * Lässt den Server zurückfragen, statt gleich zu antworten.
+   *
+   * Beantwortet wird damit nur der erste Aufruf — der ohne Antwort des
+   * Lesers. Kommt die Anfrage mit einer Bestätigung wieder, antwortet der
+   * Server wie sonst auch. Genau das ist der Ablauf, den es zu prüfen gilt.
+   */
+  vermutung?: Record<string, unknown>;
 }
 
 /**
@@ -78,7 +88,21 @@ export async function apiVortaeuschen(page: Page, opt: MockOptionen = {}): Promi
       hatBild: typeof koerper.bild === 'string' && koerper.bild.length > 0,
       medienTyp: String(koerper.typ ?? ''),
       schluessel: (await route.request().headerValue('x-anthropic-schluessel')) ?? null,
+      bestaetigtId: Number(koerper.bestaetigt_id ?? 0),
     });
+
+    // Die Rückfrage gilt nur, solange der Leser nicht geantwortet hat.
+    if (!istErweitert && opt.vermutung && !koerper.bestaetigt_id) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          vermutung: opt.vermutung,
+          quelle: 'vermutung',
+          dauer_ms: 700,
+        }),
+      });
+    }
 
     if (istErweitert) {
       if (opt.erweitertVerzoegern) {

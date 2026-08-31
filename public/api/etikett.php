@@ -21,8 +21,14 @@ herkunftPruefen();
 nurPost();
 
 $begonnen = hrtime(true);
-$bild = bildAusRumpf(rumpfLesen());
+$rumpf = rumpfLesen();
+$bild = bildAusRumpf($rumpf);
 $llm = konfiguration()['llm'];
+
+// Hat der Leser eine Rückfrage bejaht, reist die Kennung des bestätigten
+// Biers mit. Der Dirigent bewertet sie nicht — er reicht sie an den Dienst
+// durch, wo die Datenbank steht und wo sie geprüft werden kann.
+$bestaetigt = (int) ($rumpf['bestaetigt_id'] ?? 0);
 
 // Erst hier, nicht früher: Bis zu dieser Zeile kann die Anfrage noch mit
 // einem ehrlichen Statuscode abgewiesen werden — zu gross, kein Bild, kein
@@ -58,6 +64,7 @@ if (dienstAktiv()) {
     $befund = dienstFragen('nachschlagen.php', [
         'bild' => $bild->base64,
         'typ' => $bild->medienTyp,
+        'bestaetigt_id' => $bestaetigt,
     ]);
 
     $gelesen = is_array($befund['gelesen'] ?? null) ? $befund['gelesen'] : [];
@@ -90,6 +97,34 @@ if (dienstAktiv()) {
             'quelle' => 'speicher',
             'dauer_ms' => $dauer(),
         ]);
+    }
+
+    /* --- Vermutung: fragen, bevor gezahlt wird ---------------------------- */
+
+    // Der Dienst hält dieses Bier für ein bekanntes, ist sich aber nicht
+    // sicher genug. Hier endet der Aufruf — ohne Zerlegung, ohne Kosten.
+    //
+    // Der Leser sieht sein Etikett und das gespeicherte Referenzfoto
+    // nebeneinander und entscheidet in einer Sekunde, wofür keine Menge an
+    // Signalen reicht. Sagt er ja, kommt dieselbe Anfrage mit bestaetigt_id
+    // zurück und wird zum gewöhnlichen Treffer; sagt er nein, kommt sie ohne
+    // und läuft in die Zerlegung darunter.
+    if (is_array($befund['vermutung'] ?? null)) {
+        $vermutung = vermutungSaeubern($befund['vermutung']);
+
+        if ($vermutung !== null) {
+            stromAktiv() && stromZeile([
+                'stufe' => 'vermutung',
+                'brauerei' => $vermutung['brauerei'],
+                'name' => $vermutung['name'],
+            ]);
+
+            antwortSenden(200, [
+                'vermutung' => $vermutung,
+                'quelle' => 'vermutung',
+                'dauer_ms' => $dauer(),
+            ]);
+        }
     }
 
     /* --- Fehlschlag: die bezahlte API, und danach zurückmelden ------------ */

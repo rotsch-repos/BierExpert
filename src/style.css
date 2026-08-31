@@ -942,3 +942,77 @@ kbd {
   border-radius: var(--rounded-sm);
 }
 
+
+/* ==========================================================================
+   Die Rückfrage — "Kennen wir das schon?"
+   ==========================================================================
+   Ruhig gehalten und ausdrücklich NICHT in der Fehlerfarbe: Hier ist nichts
+   schiefgegangen. Der Server hat gut geraten und fragt nach, statt zu
+   behaupten — das ist ein Dienst am Leser, keine Panne. */
+
+.vermutung {
+  padding: var(--space-3);
+  background: var(--surface-container-low);
+  border: var(--border-hairline);
+  border-radius: var(--rounded-lg);
+}
+
+.vermutung-titel { margin: 0 0 var(--space-2); color: var(--primary); }
+
+/* Bild und Frage nebeneinander, solange Platz ist. Auf schmalen Schirmen
+   bricht die Zeile von selbst um — das Foto ist dort die Hauptsache. */
+.vermutung-reihe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.vermutung-bild {
+  flex: 0 0 auto;
+  width: fit-content;
+  margin: 0;
+  overflow: hidden;
+  line-height: 0;
+  background: var(--surface-container-highest);
+  border: var(--border-hairline);
+  border-radius: var(--rounded);
+}
+
+.vermutung-bild img { display: block; max-width: 160px; max-height: 200px; }
+
+.vermutung-bild figcaption {
+  padding: var(--space-1);
+  line-height: 16px;
+  text-align: center;
+  color: var(--on-surface-variant);
+}
+
+.vermutung-text { flex: 1 1 16rem; }
+
+.vermutung-frage { margin: 0 0 var(--space-1); color: var(--on-surface); }
+
+.vermutung-mass {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--on-surface-variant);
+}
+
+/* Die Leitfarben des gespeicherten Etiketts als Tupfen. Sie sind der Grund,
+   warum der Server überhaupt auf dieses Bier kam — also gehören sie in die
+   Frage, damit der Leser die Vermutung nachvollziehen kann. */
+.vermutung-farbe {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--rounded-full);
+  border: 1px solid var(--outline-variant);
+}
+
+.vermutung .tastenreihe { margin-top: var(--space-3); }
+
+.vermutung-hinweis {
+  margin: var(--space-2) 0 0;
+  color: var(--on-surface-variant);
+}

@@ -2,7 +2,7 @@ import './style.css';
 import { bildAufbereiten, BildFehler, type AufbereitetesBild } from './bild';
 import { erweitertLesen, etikettLesen, EtikettFehler, type Auswertung } from './etikett';
 import { braumeister } from './braumeister';
-import type { Bereich, Erweitert, Etikett, Etikettelement } from './schema';
+import type { Bereich, Erweitert, Etikett, Etikettelement, Vermutung } from './schema';
 import { FAMILIEN, SORTEN, type Biersorte, type Familie } from './glossar';
 import { glasZeichnen } from './glas';
 import { schluesselVergessen } from './schluessel';
@@ -150,8 +150,22 @@ document.addEventListener('paste', (e) => {
 
 /* ----------------------------------------------------------- Auswerten */
 
-lesenTaste.addEventListener('click', async () => {
-  if (!aktuellesBild || laeuft) return;
+lesenTaste.addEventListener('click', () => {
+  if (!aktuellesBild) return;
+  void auswerten(aktuellesBild, 0);
+});
+
+/**
+ * Ein Auswertelauf.
+ *
+ * Eigene Funktion und nicht mehr der Rumpf des Klickhandlers, weil es
+ * inzwischen einen zweiten Anlass gibt, sie zu starten: Bejaht der Leser
+ * eine Rückfrage, läuft dieselbe Auswertung noch einmal — nur diesmal mit
+ * der Kennung des bestätigten Biers, und dann endet sie als Treffer statt
+ * als Frage.
+ */
+async function auswerten(bild: AufbereitetesBild, bestaetigtId: number): Promise<void> {
+  if (laeuft) return;
 
   laeuft = true;
   lesenTaste.disabled = true;
@@ -160,10 +174,9 @@ lesenTaste.addEventListener('click', async () => {
   const erzaehler = braumeister();
 
   const lauf = ++laufNummer;
-  const bild = aktuellesBild;
 
   try {
-    const auswertung = await etikettLesen(bild, (ereignis) => {
+    const lesung = await etikettLesen(bild, (ereignis) => {
       // Ein überholter Lauf darf die Zeile nicht mehr anfassen: Wer während
       // einer Auswertung ein neues Foto einwirft, bekäme sonst die
       // Zwischenstände der alten zu lesen.
@@ -172,8 +185,18 @@ lesenTaste.addEventListener('click', async () => {
       const ansage = erzaehler(ereignis);
       if (ansage.fund !== undefined) warten.fund(ansage.fund);
       if (ansage.zeile !== undefined) warten.satz(ansage.zeile);
-    });
+    }, bestaetigtId);
     if (lauf !== laufNummer) return;
+
+    // Der Server ist sich nicht sicher. Hier endet der Lauf mit einer Frage
+    // statt mit einem Befund — und ohne dass ein bezahlter Aufruf fällig
+    // geworden wäre.
+    if (lesung.art === 'vermutung') {
+      vermutungZeigen(lesung.vermutung, bild);
+      return;
+    }
+
+    const auswertung = lesung.auswertung;
 
     // Erst jetzt die erweiterte Sicht anstoßen, nicht schon vorhin daneben.
     //
@@ -214,7 +237,113 @@ lesenTaste.addEventListener('click', async () => {
     lesenTaste.disabled = false;
     lesenTaste.textContent = 'Etikett auswerten';
   }
-});
+}
+
+/**
+ * Die Rückfrage: "Kennen wir das schon?"
+ *
+ * Der ehrlichste der drei Ausgänge. Der Server hat drei Signale befragt —
+ * Farbe, Name, Bildvergleich — und keines reichte allein. Statt zu raten
+ * (dann stünde womöglich ein fremdes Bier da, und niemand merkte es) oder
+ * blind zu zahlen (dann entstünde ein zweiter Eintrag für dasselbe Bier),
+ * wird gefragt.
+ *
+ * Mit dem Referenzfoto daneben, und das ist der Kern: Der Leser soll
+ * vergleichen können statt glauben zu müssen. Zwei Etiketten nebeneinander
+ * entscheidet ein Mensch in einer Sekunde sicher — sicherer als jede
+ * Rechnung, die hier möglich wäre.
+ */
+function vermutungZeigen(vermutung: Vermutung, bild: AufbereitetesBild): void {
+  abschnittBefund.hidden = false;
+  befundZiel.replaceChildren();
+
+  const karte = document.createElement('section');
+  karte.className = 'vermutung';
+
+  const titel = document.createElement('h3');
+  titel.className = 'vermutung-titel headline-sm';
+  titel.textContent = 'Kennen wir das schon?';
+  karte.append(titel);
+
+  const reihe = document.createElement('div');
+  reihe.className = 'vermutung-reihe';
+
+  if (vermutung.bild !== '') {
+    const figur = document.createElement('figure');
+    figur.className = 'vermutung-bild';
+    const foto = document.createElement('img');
+    foto.src = vermutung.bild;
+    foto.alt = `Gespeichertes Foto von „${vermutung.name}"`;
+    foto.loading = 'lazy';
+    figur.append(foto);
+    const zettel = document.createElement('figcaption');
+    zettel.className = 'label-caps';
+    zettel.textContent = 'Gespeichert';
+    figur.append(zettel);
+    reihe.append(figur);
+  }
+
+  const text = document.createElement('div');
+  text.className = 'vermutung-text';
+
+  const frage = document.createElement('p');
+  frage.className = 'vermutung-frage body-lg';
+  // In Stücken zusammengesetzt statt als eine Zeichenkette: Der Name ist
+  // Inhalt aus der Datenbank und gehört als Text eingesetzt, nicht als
+  // Markup zusammengeklebt.
+  frage.append(document.createTextNode('Ist das das '));
+  const stark = document.createElement('strong');
+  stark.textContent = `„${vermutung.name}"`;
+  frage.append(stark);
+  if (vermutung.brauerei !== '') {
+    frage.append(document.createTextNode(` von ${vermutung.brauerei}`));
+  }
+  frage.append(document.createTextNode('?'));
+  text.append(frage);
+
+  const mass = document.createElement('p');
+  mass.className = 'vermutung-mass mono-data';
+  mass.textContent = `Übereinstimmung ${Math.round(vermutung.wahrscheinlichkeit * 100)} %`;
+
+  for (const farbe of vermutung.leitfarben) {
+    const tupfen = document.createElement('span');
+    tupfen.className = 'vermutung-farbe';
+    tupfen.style.backgroundColor = farbe;
+    mass.append(tupfen);
+  }
+
+  text.append(mass);
+  reihe.append(text);
+  karte.append(reihe);
+
+  const tasten = document.createElement('div');
+  tasten.className = 'tastenreihe';
+
+  const ja = document.createElement('button');
+  ja.type = 'button';
+  ja.className = 'taste taste-primaer';
+  ja.textContent = 'Ja, das ist es';
+  ja.addEventListener('click', () => void auswerten(bild, vermutung.id));
+
+  // Die Ablehnung geht als -1 mit, nicht als Null: Null hiesse "nicht
+  // gefragt worden", und dann käme dieselbe Frage sofort wieder.
+  const nein = document.createElement('button');
+  nein.type = 'button';
+  nein.className = 'taste taste-sekundaer';
+  nein.textContent = 'Nein, ein anderes';
+  nein.addEventListener('click', () => void auswerten(bild, -1));
+
+  tasten.append(ja, nein);
+  karte.append(tasten);
+
+  const hinweis = document.createElement('p');
+  hinweis.className = 'vermutung-hinweis body-md';
+  hinweis.textContent =
+    'Bei „Nein" wird das Etikett neu ausgewertet — das dauert etwas länger.';
+  karte.append(hinweis);
+
+  befundZiel.append(karte);
+}
 
 /* ------------------------------------------------------------- Darstellung */
 

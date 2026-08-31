@@ -441,3 +441,118 @@ function elementbildEintragen(int $bierId, int $reihenfolge, string $datei): voi
         error_log('BierExpert: Elementbild nicht vermerkt — ' . $fehler->getMessage());
     }
 }
+
+/**
+ * Alle Biere, gegen die sich ein Foto überhaupt vergleichen lässt.
+ *
+ * Vergleichbar heisst: Es liegt eine Farbsignatur vor (fürs Vorsieb) oder
+ * ein Referenzfoto (für die Registrierung). Ohne beides ist ein Eintrag für
+ * die Wiedererkennung blind und bleibt draussen — er kostete sonst
+ * Rechenzeit, ohne je gefunden werden zu können.
+ *
+ * Die ganze Liste auf einmal statt einer Abfrage je Kandidat: Es sind
+ * Zahlenreihen von 48 Werten, das sind auch bei tausend Bieren wenige
+ * hundert Kilobyte. Der Vergleich läuft danach im Speicher.
+ *
+ * @return list<array{id:int, schluessel:string, brauerei:string, name:string,
+ *                    referenz_bild:?string, farbsignatur:?array, leitfarben:?array}>
+ */
+function bierKandidaten(): array
+{
+    $db = datenbank();
+    if ($db === null) {
+        return [];
+    }
+
+    try {
+        $abfrage = $db->query(
+            'SELECT id, schluessel, brauerei, name, referenz_bild, farbsignatur, leitfarben
+               FROM biere
+              WHERE farbsignatur IS NOT NULL OR referenz_bild IS NOT NULL',
+        );
+
+        if ($abfrage === false) {
+            return [];
+        }
+
+        $liste = [];
+
+        foreach ($abfrage->fetchAll() as $zeile) {
+            $liste[] = [
+                'id' => (int) $zeile['id'],
+                'schluessel' => (string) $zeile['schluessel'],
+                'brauerei' => (string) $zeile['brauerei'],
+                'name' => (string) $zeile['name'],
+                'referenz_bild' => $zeile['referenz_bild'] !== null
+                    ? (string) $zeile['referenz_bild']
+                    : null,
+                'farbsignatur' => jsonSpalte($zeile['farbsignatur']),
+                'leitfarben' => jsonSpalte($zeile['leitfarben']),
+            ];
+        }
+
+        return $liste;
+    } catch (PDOException $fehler) {
+        error_log('BierExpert: Kandidaten nicht ladbar — ' . $fehler->getMessage());
+
+        return [];
+    }
+}
+
+/** Legt Farbsignatur und Leitfarben zu einem Bier ab. */
+function signaturSpeichern(int $bierId, array $signatur, array $farben): void
+{
+    $db = datenbank();
+    if ($db === null) {
+        return;
+    }
+
+    try {
+        $abfrage = $db->prepare(
+            'UPDATE biere SET farbsignatur = ?, leitfarben = ? WHERE id = ?',
+        );
+        $abfrage->execute([
+            json_encode($signatur),
+            json_encode($farben),
+            $bierId,
+        ]);
+    } catch (PDOException $fehler) {
+        // Kein Grund, den Scan scheitern zu lassen: Ohne Signatur ist die
+        // Suche langsamer, nicht falsch.
+        error_log('BierExpert: Signatur nicht abgelegt — ' . $fehler->getMessage());
+    }
+}
+
+/**
+ * Ein Bier über seine Kennung — für die vom Leser bestätigte Rückfrage.
+ *
+ * Bewusst eine eigene, schmale Abfrage statt bierLaden(): Gebraucht wird
+ * hier nur der Schlüssel, um von dort den gewohnten Weg zu gehen. Und die
+ * Kennung kommt aus dem Netz; sie wird deshalb gegen die Datenbank geprüft
+ * und nicht geglaubt.
+ *
+ * @return array{id:int, schluessel:string}|null
+ */
+function bierNachKennung(int $id): ?array
+{
+    $db = datenbank();
+    if ($db === null || $id <= 0) {
+        return null;
+    }
+
+    try {
+        $abfrage = $db->prepare('SELECT id, schluessel FROM biere WHERE id = ?');
+        $abfrage->execute([$id]);
+        $zeile = $abfrage->fetch();
+
+        if ($zeile === false) {
+            return null;
+        }
+
+        return ['id' => (int) $zeile['id'], 'schluessel' => (string) $zeile['schluessel']];
+    } catch (PDOException $fehler) {
+        error_log('BierExpert: Bier zur Kennung nicht ladbar — ' . $fehler->getMessage());
+
+        return null;
+    }
+}

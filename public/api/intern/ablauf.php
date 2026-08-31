@@ -278,3 +278,47 @@ function bildAdresse(mixed $wert): string
 {
     return is_string($wert) && preg_match('#^https?://#', $wert) === 1 ? $wert : '';
 }
+
+/**
+ * Prüft eine Vermutung, die über das Netz kam.
+ *
+ * Sie stammt vom eigenen Dienst — und wird trotzdem geprüft. Was hier
+ * durchginge, landete unbesehen in der Seite: die Adresse im src eines
+ * Bildes, die Farben in einem style-Attribut, die Kennung in der nächsten
+ * Anfrage. Dass die Gegenstelle die eigene ist, macht die Daten nicht
+ * wohlgeformt; es macht nur den Fehler unwahrscheinlicher, nicht unmöglich.
+ *
+ * @return array{id:int, brauerei:string, name:string, wahrscheinlichkeit:float,
+ *               leitfarben:list<string>, bild:string}|null
+ */
+function vermutungSaeubern(array $roh): ?array
+{
+    $id = (int) ($roh['id'] ?? 0);
+    $name = text($roh['name'] ?? '');
+
+    // Ohne Kennung liesse sich die Antwort des Lesers nicht zuordnen, ohne
+    // Namen wäre die Frage nicht zu stellen. Beides fehlt: keine Frage.
+    if ($id <= 0 || $name === '') {
+        return null;
+    }
+
+    $anteil = $roh['wahrscheinlichkeit'] ?? 0;
+    $farben = [];
+
+    foreach (array_slice((array) ($roh['leitfarben'] ?? []), 0, 3) as $farbe) {
+        if (is_string($farbe) && preg_match('/^#[0-9a-f]{6}$/i', $farbe) === 1) {
+            $farben[] = strtolower($farbe);
+        }
+    }
+
+    return [
+        'id' => $id,
+        'brauerei' => text($roh['brauerei'] ?? ''),
+        'name' => $name,
+        'wahrscheinlichkeit' => is_numeric($anteil)
+            ? max(0.0, min(1.0, (float) $anteil))
+            : 0.0,
+        'leitfarben' => $farben,
+        'bild' => bildAdresse($roh['bild'] ?? null),
+    ];
+}
