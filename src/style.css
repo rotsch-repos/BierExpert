@@ -1054,7 +1054,32 @@ kbd {
   border-radius: var(--rounded-lg);
   box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55);
   pointer-events: none;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
+
+/* Steht alles richtig, wird der Rahmen bierfarben — und zwar deutlich, mit
+   einem warmen Schein nach innen und aussen. Das ist die einzige Rückmeldung
+   der Kamera, die man aus dem Augenwinkel erkennt, ohne den Satz oben zu
+   lesen: Der Leser hält das Handy in Bewegung und richtet aus; er hat keine
+   Hand frei zum Nachdenken. */
+.kamera-rahmen.gut {
+  border-color: #f0b429;
+  box-shadow:
+    0 0 0 100vmax rgba(0, 0, 0, 0.55),
+    0 0 18px 3px rgba(240, 180, 41, 0.75),
+    inset 0 0 18px 2px rgba(240, 180, 41, 0.35);
+}
+
+/* Ist es ohnehin zu dunkel, wird die Abdunklung ausserhalb zurückgenommen.
+   Sie soll den Blick lenken, nicht dem Leser auch noch das Wenige nehmen,
+   woran er sich beim Ausrichten orientieren kann. */
+.kamera-dunkel .kamera-rahmen {
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.2);
+}
+
+/* Die Lichttaste steht nur da, wenn das Gerät die Lampe wirklich schalten
+   kann — auf dem iPhone gibt WebKit sie nicht heraus. */
+.kamera-licht[hidden] { display: none; }
 
 .kamera-anleitung {
   position: absolute;
