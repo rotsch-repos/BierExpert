@@ -44,18 +44,29 @@ const WIEDERERKENNUNG_SICHER = 0.82;
 const WIEDERERKENNUNG_FRAGEN = 0.50;
 
 /**
- * Wie ähnlich die Farben mindestens sein müssen, um überhaupt in die teure
- * Prüfung zu kommen.
+ * So viele Kandidaten gehen in die teure Prüfung.
  *
- * Grosszügig, weil ein Vorsieb grosszügig irren muss: Es soll das richtige
- * Bier drinbehalten, nicht als einziges benennen. Gemessen am 31.08.:
- * dasselbe Bier in anderer Fassung 0,98, zwei fremde Biere 0,45. Die
- * Schwelle liegt bewusst nah am zweiten Wert — lieber ein Kandidat zu viel
- * als das richtige Bier zu früh verworfen.
+ * Hier stand einmal zusätzlich eine Mindestähnlichkeit, unterhalb derer ein
+ * Kandidat gar nicht erst geprüft wurde. Sie ist ersatzlos weg, und dafür
+ * gibt es eine Messung:
+ *
+ * Am 31.08. wurden zwei ECHTE Aufnahmen derselben Sol-Flasche verglichen —
+ * nicht zwei Fassungen desselben Fotos, sondern zwei getrennte Aufnahmen
+ * mit eigenem Licht und eigenem Winkel. Die Farbsignatur kam auf 0,527. Für
+ * zwei FREMDE Biere hatte dieselbe Rechnung 0,45 ergeben. Der Abstand
+ * zwischen "dasselbe Bier" und "ein anderes" schrumpft bei echten Fotos
+ * also auf fast nichts — meine synthetischen 0,98 hatten das Gegenteil
+ * vorgegaukelt.
+ *
+ * Die Registrierung dagegen sagte im selben Fall 0,991 bei 997 Passpunkten.
+ * Sie kann es, die Farbe kann es nicht. Eine Schwelle auf dem schwachen
+ * Signal hätte den richtigen Kandidaten verworfen, BEVOR das starke ihn je
+ * zu sehen bekam — der Fehler, gegen den nichts mehr hilft.
+ *
+ * Also keine Schwelle mehr, sondern eine Rangfolge: Die besten vier nach
+ * dem billigen Mass gehen in die teure Prüfung, und die entscheidet. Was
+ * das kostet, ist gedeckelt; was es rettet, ist der Treffer selbst.
  */
-const WIEDERERKENNUNG_VORSIEB = 0.42;
-
-/** So viele Kandidaten gehen in die teure Prüfung. */
 const WIEDERERKENNUNG_KANDIDATEN = 4;
 
 /**
@@ -87,14 +98,6 @@ function bierWiedererkennen(?array $signatur, string $neuPfad, array $erkennung)
             : 0.0;
 
         $name = namensAehnlichkeit($gelesen, teilVereinheitlichen($kandidat['name']));
-
-        // Ein Kandidat kommt weiter, wenn EINES der billigen Signale für ihn
-        // spricht — nicht nur, wenn beide es tun. Sie irren auf
-        // verschiedene Weise; sie beide zur Bedingung zu machen hiesse,
-        // beide Irrtümer zu addieren statt sie gegeneinander zu stellen.
-        if ($farbe < WIEDERERKENNUNG_VORSIEB && $name < 0.72) {
-            continue;
-        }
 
         $vorsortiert[] = [
             'kandidat' => $kandidat,

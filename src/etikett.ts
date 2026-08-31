@@ -141,7 +141,19 @@ export async function etikettLesen(
  * stehen und nur die Reiter bleiben leer.
  */
 export async function erweitertLesen(bild: AufbereitetesBild): Promise<Auswertung<Erweitert>> {
-  const antwort = await fragen('erweitert.php', bild);
+  // Über den Strom, obwohl hier niemand Zwischenstände anzeigt.
+  //
+  // Der Strom hat zwei Aufgaben, und die zweite ist hier die einzige, aber
+  // die wichtigere: Er hält die Leitung am Sprechen. Ohne ihn schwieg
+  // dieser Aufruf 60 bis 90 Sekunden am Stück, während der Server bei der
+  // bezahlten API war — und im Mobilnetz reisst eine so lange Stille ab.
+  // Der Leser sah dann "Der Server war nicht erreichbar", während der
+  // Server längst fertig war und sein Ergebnis abgelegt hatte. Es war alles
+  // da; nur die Leitung war weg.
+  //
+  // Deshalb ein leerer Rückruf: Angezeigt wird nichts davon, gebraucht wird
+  // allein, dass Bytes fliessen.
+  const antwort = await fragenAlsStrom('erweitert.php', bild, () => undefined);
   return auspacken(antwort, 'erweitert', ErweitertSchema, 'Die erweiterte Sicht');
 }
 

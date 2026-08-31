@@ -44,6 +44,25 @@ $llm = konfiguration()['llm'];
 
 $dauer = static fn (): int => (int) ((hrtime(true) - $begonnen) / 1_000_000);
 
+// Derselbe Strom wie in etikett.php, und aus demselben Grund.
+//
+// Er fehlte hier — und das war der teuerste Unterschied zwischen den beiden
+// Endpunkten. etikett.php bekam den Pulsschlag ausdruecklich, damit
+// Cloudflare nicht die Zeit bis zur Antwort zaehlt, sondern nur die Stille
+// zwischen zwei Zeilen. Dieser Aufruf dauert genauso lange — 60 bis 90
+// Sekunden, wenn die erweiterte Sicht neu geholt werden muss — und schwieg
+// dabei von Anfang bis Ende.
+//
+// Am 31.08. genau daran gescheitert: Roger sah "Der Server war nicht
+// erreichbar", waehrend der Server in Ruhe fertigrechnete und das Ergebnis
+// ablegte. Es war alles da; nur die Leitung war weg. Ein Fehler, der die
+// Arbeit nicht verhindert, sondern nur ihre Zustellung — und der sich am
+// Handy im Mobilnetz zuverlaessig zeigt und am Schreibtisch nie.
+if (stromGewuenscht()) {
+    stromBeginnen();
+    stromZeile(['stufe' => 'laden']);
+}
+
 /* --- Der Weg über den Nachschlage-Dienst --------------------------------- */
 
 // Liegt die Datenbank nicht hier, liegt auch die erweiterte Sicht nicht
@@ -76,6 +95,9 @@ if (dienstAktiv()) {
         // damit ein dauerhaft stummer Dienst auffällt.
         error_log('BierExpert: Erweitert-Nachschlag fehlgeschlagen — ' . $fehler->getMessage());
     }
+
+    stromStufe('auswertung');
+    stromAktiv() && stromZeile(['stufe' => 'auswertung', 'anbieter' => $llm['anbieter_tief']]);
 
     $erweitert = modellFragen(
         ERWEITERT_ANWEISUNG,
@@ -119,6 +141,9 @@ if ($bekannt !== null && is_array($bekannt['erweitert'])) {
 if ($bekannt !== null) {
     // Das Bier ist bekannt, die erweiterte Sicht dazu noch nicht. Ein
     // Modellaufruf, kein Ablesen.
+    stromStufe('auswertung');
+    stromAktiv() && stromZeile(['stufe' => 'auswertung', 'anbieter' => $llm['anbieter_tief']]);
+
     $erweitert = modellFragen(ERWEITERT_ANWEISUNG, ERWEITERT_FRAGE, schemaErweitert(), $bild->base64);
     erweitertSpeichernZuKennung($bekannt['id'], $erweitert);
 
@@ -151,7 +176,10 @@ if ($treffer !== null && is_array($treffer['erweitert'])) {
     ]);
 }
 
-$erweitert = modellFragen(ERWEITERT_ANWEISUNG, ERWEITERT_FRAGE, schemaErweitert(), $bild->base64);
+stromStufe('auswertung');
+    stromAktiv() && stromZeile(['stufe' => 'auswertung', 'anbieter' => $llm['anbieter_tief']]);
+
+    $erweitert = modellFragen(ERWEITERT_ANWEISUNG, ERWEITERT_FRAGE, schemaErweitert(), $bild->base64);
 
 // Abgelegt wird unter dem Schlüssel der ersten Stufe — demselben, unter dem
 // etikett.php ablegt und unter dem beide nachschlagen. Nur wenn Ablegen und
