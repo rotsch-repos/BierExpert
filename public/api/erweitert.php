@@ -44,6 +44,66 @@ $llm = konfiguration()['llm'];
 
 $dauer = static fn (): int => (int) ((hrtime(true) - $begonnen) / 1_000_000);
 
+/* --- Der Weg über den Nachschlage-Dienst --------------------------------- */
+
+// Liegt die Datenbank nicht hier, liegt auch die erweiterte Sicht nicht
+// hier. Ohne diesen Zweig arbeitete dieser Endpunkt gegen die Datenbank,
+// die er zufällig vorfand — beim Hoster also gegen Hostpoints eigene, in
+// der seit dem Umzug nichts mehr steht, was zählt. Er fand nie etwas, rief
+// für JEDEN Scan die bezahlte API und legte das Ergebnis dort ab, wo es im
+// Betrieb niemand mehr liest.
+//
+// Gefragt wird nur mit der Prüfsumme: Welches Bier auf dem Foto ist, hat
+// nachschlagen.php längst festgestellt. Das Bild noch einmal über den
+// Tunnel zu schicken, um es ein zweites Mal ablesen zu lassen, wäre ein
+// Modellaufruf für eine Auskunft, die schon dasteht.
+if (dienstAktiv()) {
+    try {
+        $befund = dienstFragen('erweitert-nachschlagen.php', [
+            'pruefsumme' => $bild->pruefsumme,
+        ]);
+
+        if (($befund['gefunden'] ?? false) === true && is_array($befund['erweitert'] ?? null)) {
+            antwortSenden(200, [
+                'erweitert' => $befund['erweitert'],
+                'quelle' => 'speicher',
+                'dauer_ms' => $dauer(),
+            ]);
+        }
+    } catch (BierFehler $fehler) {
+        // Der Dienst antwortet nicht. Kein Grund aufzugeben: Die bezahlte
+        // API kann die Auskunft geben, sie kostet nur. Ins Protokoll,
+        // damit ein dauerhaft stummer Dienst auffällt.
+        error_log('BierExpert: Erweitert-Nachschlag fehlgeschlagen — ' . $fehler->getMessage());
+    }
+
+    $erweitert = modellFragen(
+        ERWEITERT_ANWEISUNG,
+        ERWEITERT_FRAGE,
+        schemaErweitert(),
+        $bild->base64,
+    );
+
+    // Zurückmelden, damit es das letzte Mal war. Scheitert es, ist die
+    // Auskunft an den Leser trotzdem vollständig — nur beim nächsten Foto
+    // desselben Biers fiele wieder ein bezahlter Aufruf an. Deshalb ins
+    // Log und nicht in die Antwort.
+    try {
+        dienstFragen('erweitert-merken.php', [
+            'pruefsumme' => $bild->pruefsumme,
+            'erweitert' => $erweitert,
+        ]);
+    } catch (BierFehler $fehler) {
+        error_log('BierExpert: Erweiterte Sicht nicht zurückgemeldet — ' . $fehler->getMessage());
+    }
+
+    antwortSenden(200, [
+        'erweitert' => $erweitert,
+        'quelle' => 'modell',
+        'dauer_ms' => $dauer(),
+    ]);
+}
+
 /* --- Der kurze Weg: Was hat etikett.php zu diesem Foto festgestellt? ----- */
 
 $bekannt = bierZuScan($bild->pruefsumme);
