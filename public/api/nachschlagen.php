@@ -143,7 +143,7 @@ if (!$taugt($treffer)) {
         'gelesen_name' => $erkennung['name'],
         'sicherheit' => $erkennung['sicherheit'],
         'dauer_ms' => $dauer(),
-        'modell' => $llm['modell_schnell'],
+        'modell' => modellSchnellName($llm),
     ]);
 
     antwortSenden(200, array_filter([
@@ -205,7 +205,7 @@ scanProtokollieren([
     'gelesen_name' => $erkennung['name'],
     'sicherheit' => $erkennung['sicherheit'],
     'dauer_ms' => $dauer(),
-    'modell' => $llm['modell_schnell'],
+    'modell' => modellSchnellName($llm),
 ]);
 
 antwortSenden(200, [

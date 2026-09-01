@@ -33,10 +33,8 @@ function anthropicFragen(
     if ($schluessel === '') {
         throw new BierFehler(
             'Es ist kein Anthropic-Schlüssel da.',
-            'Trag deinen Schlüssel im Frontend unter "Eigener Anthropic-Schlüssel" ein — '
-                . 'er bleibt in deinem Browser und geht nur mit deinen Anfragen mit. '
-                . '(Alternativ serverseitig als Secret ANTHROPIC_SCHLUESSEL, dann zahlt '
-                . 'der Betreiber für alle.)',
+            'Hinterlege ANTHROPIC_SCHLUESSEL in der Konfiguration des Servers — im '
+                . 'Verbund gehört die tiefe Stufe zum Dirigenten, nicht zu dieser Anlage.',
             401,
         );
     }
@@ -265,28 +263,19 @@ function anthropicStatusFehler(int $status, string $rumpf): BierFehler
 }
 
 /**
- * Welcher Schlüssel gilt: der des Servers vor dem aus der Anfrage.
+ * Der Schlüssel des Servers — und nur der.
  *
- * Diese Reihenfolge stand einmal andersherum, und das war ein Fehler mit
- * Ansage. Ein Browser, der einmal einen persönlichen Schlüssel hinterlegt
- * hat, schickt ihn weiter mit — auch lange nachdem er in der Console
- * widerrufen wurde. Er überstimmte damit den gültigen Schlüssel des
- * Servers, und der Leser bekam "Der Anthropic-Schlüssel wurde abgewiesen"
- * für ein Geheimnis, das er längst vergessen hatte. Wer eine alte Fassung
- * der Seite im Zwischenspeicher hat, kam aus dieser Schleife nicht heraus.
- *
- * Hat der Betreiber einen Schlüssel hinterlegt, gilt also seiner: Er zahlt
- * dann ohnehin für alle, und der persönliche brächte niemandem etwas.
- *
- * Für eine Anlage OHNE eigenen Schlüssel bleibt die Kopfzeile, was sie war
- * — der einzige Weg, überhaupt etwas auszuwerten. Sie wird nur
- * durchgereicht, nie gespeichert und nie protokolliert.
+ * Hier stand einmal ein Rückfall auf die Kopfzeile X-Anthropic-Schluessel:
+ * Besucher konnten einen eigenen Schlüssel im Browser hinterlegen, solange
+ * der Server keinen hatte. Dieser Weg ist vollständig abgeschafft, samt
+ * Oberfläche, Kopfzeile und CORS-Freigabe. Der Grund steht in der
+ * Geschichte des 31.08.: Ein längst widerrufener Schlüssel aus einem alten
+ * Browser-Zwischenspeicher überstimmte den gültigen des Servers, und der
+ * Leser sass in einer Schleife aus Fehlermeldungen fest, deren Ursache er
+ * nicht sehen konnte. Ein Geheimnis, das in fremden Browsern liegt, altert
+ * schlecht — deshalb liegt es nur noch an einer Stelle.
  */
 function anthropicSchluessel(array $llm): string
 {
-    $eigener = trim((string) $llm['anthropic_schluessel']);
-    if ($eigener !== '') {
-        return $eigener;
-    }
-    return trim((string) ($_SERVER['HTTP_X_ANTHROPIC_SCHLUESSEL'] ?? ''));
+    return trim((string) $llm['anthropic_schluessel']);
 }

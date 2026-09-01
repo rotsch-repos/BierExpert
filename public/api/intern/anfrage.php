@@ -46,7 +46,7 @@ function herkunftPruefen(): void
         // Herkunft auch der nächsten ausliefern.
         header('Vary: Origin');
         header('Access-Control-Allow-Methods: POST, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, X-Anthropic-Schluessel');
+        header('Access-Control-Allow-Headers: Content-Type');
         header('Access-Control-Max-Age: 86400');
     }
 

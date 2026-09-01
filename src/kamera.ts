@@ -90,6 +90,37 @@ export function kameraMoeglich(): boolean {
 }
 
 /**
+ * Hat der Leser die Kamera dieser Seite schon einmal verweigert?
+ *
+ * Gemerkt wird das, weil der Rückfall sonst ins Leere lief: Der Griff zur
+ * Gerätekamera (kameraFeld.click()) zählt für den Browser nur innerhalb
+ * einer frischen Nutzergeste. Nach einem abgewiesenen Berechtigungsdialog
+ * ist die Geste verbraucht — der programmatische Klick wird still
+ * verschluckt, und der Tipp des Lesers verpufft. Beim NÄCHSTEN Tipp steht
+ * dank dieses Merkers fest, dass die Seitenkamera nichts wird, und die
+ * Gerätekamera öffnet synchron in der Geste — der Weg, der keine
+ * zusätzliche Berechtigung braucht und immer geht.
+ */
+const VERWEIGERT_ABLAGE = 'bierexpert-kamera-verweigert';
+
+export function kameraVerweigert(): boolean {
+  try {
+    return localStorage.getItem(VERWEIGERT_ABLAGE) === 'ja';
+  } catch {
+    return false;
+  }
+}
+
+function verweigerungMerken(): void {
+  try {
+    localStorage.setItem(VERWEIGERT_ABLAGE, 'ja');
+  } catch {
+    // Kein Speicher, kein Merker — dann eben beim nächsten Mal noch einmal
+    // fragen. Schlimmer als ein zweiter Dialog ist das nicht.
+  }
+}
+
+/**
  * Öffnet die Kamera und gibt das zugeschnittene Bild zurück.
  *
  * null heisst: abgebrochen, abgelehnt oder keine Kamera vorhanden. Der
@@ -113,7 +144,14 @@ export async function kameraOeffnen(): Promise<File | null> {
       },
       audio: false,
     });
-  } catch {
+  } catch (fehler) {
+    // Eine Ablehnung ist eine Entscheidung des Lesers und wird gemerkt —
+    // ein technischer Fehlschlag (keine Kamera, belegtes Gerät) nicht:
+    // Der kann beim nächsten Mal anders ausgehen.
+    if (fehler instanceof DOMException && fehler.name === 'NotAllowedError') {
+      verweigerungMerken();
+    }
+
     return null;
   }
 

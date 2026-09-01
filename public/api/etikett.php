@@ -200,7 +200,12 @@ $treffer = bierLaden($schluessel);
 // Ein Eintrag ohne Elemente ist ein Torso: Er entstand aus einem Aufruf,
 // der nur die erweiterte Sicht geholt hat. Für die Zerlegung taugt er nicht.
 if ($treffer !== null && $treffer['etikett']['elemente'] !== []) {
-    $etikett = $treffer['etikett'];
+    // Durch die Reinigung, wie auf dem Dienst-Weg auch. Ohne sie ging der
+    // Eintrag hier roh an den Browser — samt referenz_bereich, dem internen
+    // Anker der Registrierung, von dem speicher.php ausdrücklich verspricht,
+    // er verlasse die Anlage nie. bereicheFuerFoto weiter unten bekommt den
+    // ungereinigten $treffer und behält so, was es zum Registrieren braucht.
+    $etikett = etikettSaeubern($treffer['etikett']);
 
     // Die beiden aufnahmebezogenen Felder kommen nicht aus der Datenbank.
     // "sicherheit" sagt, wie gut lesbar DIESES Foto war — dafür ist die
@@ -243,7 +248,7 @@ if ($treffer !== null && $treffer['etikett']['elemente'] !== []) {
         'gelesen_name' => $erkennung['name'],
         'sicherheit' => $erkennung['sicherheit'],
         'dauer_ms' => $dauer(),
-        'modell' => $llm['modell_schnell'],
+        'modell' => modellSchnellName($llm),
     ]);
 
     antwortSenden(200, [

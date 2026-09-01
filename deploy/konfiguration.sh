@@ -44,7 +44,8 @@ ANBIETER_TIEF="${LLM_ANBIETER_TIEF:-$ANBIETER}"
 # unbemerkt fehlen.
 if [ "$ANBIETER_SCHNELL" = "anthropic" ] || [ "$ANBIETER_TIEF" = "anthropic" ]; then
   if [ -z "${ANTHROPIC_SCHLUESSEL:-}" ]; then
-    echo "::warning title=Kein Anthropic-Schlüssel hinterlegt::Eine Stufe steht auf anthropic, aber das Secret ANTHROPIC_SCHLUESSEL fehlt. Das ist nur dann in Ordnung, wenn die Besucher ihren eigenen Schlüssel im Browser hinterlegen — sonst kann die Anwendung unbekannte Etiketten nicht auswerten."
+    echo "::error title=Kein Anthropic-Schlüssel hinterlegt::Eine Stufe steht auf anthropic, aber das Secret ANTHROPIC_SCHLUESSEL fehlt. Den früheren Ausweg — Besucher hinterlegen ihren eigenen Schlüssel im Browser — gibt es nicht mehr: Ohne das Secret kann diese Anlage kein unbekanntes Etikett auswerten."
+    exit 1
   fi
 fi
 if [ "$ANBIETER_SCHNELL" = "ollama" ] || [ "$ANBIETER_TIEF" = "ollama" ]; then

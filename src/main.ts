@@ -6,7 +6,7 @@ import type { Bereich, Erweitert, Etikett, Etikettelement, Vermutung } from './s
 import { FAMILIEN, SORTEN, type Biersorte, type Familie } from './glossar';
 import { glasZeichnen } from './glas';
 import { schluesselVergessen } from './schluessel';
-import { kameraMoeglich, kameraOeffnen } from './kamera';
+import { kameraMoeglich, kameraOeffnen, kameraVerweigert } from './kamera';
 import { ausEreignis, ausZwischenablage, ZwischenablageFehler } from './zwischenablage';
 
 /* ---------------------------------------------------------------- Elemente */
@@ -90,19 +90,31 @@ ablage.addEventListener('keydown', (e) => {
   }
 });
 
-// Erst die Kamera in der Seite mit ihrem Rahmen versuchen; ohne sie der
-// gewohnte Weg über die Kamera des Geräts. Eine Kamera, die sich nicht
-// öffnen lässt — abgelehnte Berechtigung, älterer Browser, Schreibtisch
-// ohne Webcam —, darf nicht bedeuten, dass gar kein Foto mehr geht.
+// Erst die Kamera in der Seite mit ihrem Rahmen versuchen; der Rückfall ist
+// IMMER die Kamera des Geräts — sie braucht keine zusätzliche Berechtigung
+// und geht auf jedem Handy.
+//
+// Die Reihenfolge ist heikler, als sie aussieht: kameraFeld.click() zählt
+// für den Browser nur innerhalb einer frischen Nutzergeste. Steht schon
+// fest, dass die Seitenkamera nichts wird (früher verweigert, kein API),
+// öffnet die Gerätekamera deshalb SYNCHRON, noch in der Geste. Schlägt der
+// Versuch erst asynchron fehl, wird der Klick trotzdem versucht — bei einem
+// schnellen technischen Fehlschlag liegt er noch im Aktivierungsfenster.
+// Nur die erstmalige Ablehnung des Berechtigungsdialogs verbraucht die
+// Geste unrettbar; sie wird gemerkt, und ab dem nächsten Tipp geht es
+// synchron zur Gerätekamera.
 fotoTaste.addEventListener('click', () => {
-  void (async () => {
-    if (kameraMoeglich()) {
-      const aufnahme = await kameraOeffnen();
+  if (!kameraMoeglich() || kameraVerweigert()) {
+    kameraFeld.click();
+    return;
+  }
 
-      if (aufnahme !== null) {
-        await bildAnnehmen(aufnahme);
-        return;
-      }
+  void (async () => {
+    const aufnahme = await kameraOeffnen();
+
+    if (aufnahme !== null) {
+      await bildAnnehmen(aufnahme);
+      return;
     }
 
     kameraFeld.click();

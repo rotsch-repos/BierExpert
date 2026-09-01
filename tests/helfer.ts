@@ -23,8 +23,6 @@ export interface Beobachtung {
   /** Ist ein Bild mitgegangen? Ohne eines kann das Modell nichts lesen. */
   hatBild: boolean;
   medienTyp: string;
-  /** Der persönliche Anthropic-Schlüssel aus der Kopfzeile, falls einer mitging. */
-  schluessel: string | null;
   /** Die Antwort des Lesers auf eine Rückfrage: >0 ja, -1 nein, 0 nicht gefragt. */
   bestaetigtId: number;
 }
@@ -87,7 +85,6 @@ export async function apiVortaeuschen(page: Page, opt: MockOptionen = {}): Promi
       methode: route.request().method(),
       hatBild: typeof koerper.bild === 'string' && koerper.bild.length > 0,
       medienTyp: String(koerper.typ ?? ''),
-      schluessel: (await route.request().headerValue('x-anthropic-schluessel')) ?? null,
       bestaetigtId: Number(koerper.bestaetigt_id ?? 0),
     });
 

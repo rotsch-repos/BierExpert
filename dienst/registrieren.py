@@ -114,11 +114,23 @@ def rahmen_abbilden(H, rahmen, ref_masse, neu_masse):
     if x1 <= 0 or y1 <= 0 or x0 >= nb or y0 >= nh:
         return None
 
+    # BEIDE Enden ins Bild klemmen, bevor die Ausdehnung entsteht. Vorher
+    # wurde nur der Ursprung geklemmt und die volle Breite behalten: Ein
+    # Rahmen, der links hinausragte (x0=-0,2, x1=0,5), kam als
+    # {x:0, breite:0,7} zurück statt {x:0, breite:0,5} — und keine Stelle
+    # dahinter repariert das, die Markierung überdeckte weit mehr als das
+    # Element. Der sichtbare Teil ist der Schnitt mit dem Bild, nichts sonst.
+    x0, x1 = max(0.0, x0), min(float(nb), x1)
+    y0, y1 = max(0.0, y0), min(float(nh), y1)
+
+    if x1 <= x0 or y1 <= y0:
+        return None
+
     return {
-        "x": max(0.0, x0 / nb),
-        "y": max(0.0, y0 / nh),
-        "breite": min(1.0, (x1 - x0) / nb),
-        "hoehe": min(1.0, (y1 - y0) / nh),
+        "x": x0 / nb,
+        "y": y0 / nh,
+        "breite": (x1 - x0) / nb,
+        "hoehe": (y1 - y0) / nh,
     }
 
 

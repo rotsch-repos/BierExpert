@@ -410,3 +410,20 @@ function kurz(string $text, int $zeichen = 300): string
     $text = trim(preg_replace('/\s+/', ' ', strip_tags($text)) ?? '');
     return strlen($text) > $zeichen ? substr($text, 0, $zeichen) . ' …' : $text;
 }
+
+/**
+ * Der Name des Modells, das die schnelle Stufe tatsächlich beantwortet.
+ *
+ * Fürs Scan-Protokoll: Dort stand unbedingt das Ollama-Modell, auch wenn
+ * die Weiche längst auf Anthropic zeigte — Kostenzuordnung und
+ * Qualitätsvergleich über die scans-Tabelle nannten dann das falsche
+ * Modell. Eine Funktion statt dreier Kopien der Bedingung, damit die
+ * nächste Stufe der Weiche nicht wieder an einer Stelle vergessen wird.
+ */
+function modellSchnellName(array $llm): string
+{
+    return $llm['anbieter_schnell'] === 'anthropic'
+        ? $llm['anthropic_modell_schnell']
+        : $llm['modell_schnell'];
+}
+

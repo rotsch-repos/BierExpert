@@ -121,8 +121,7 @@ $befund['modell'] = [
 ];
 
 /** Taugt eine Stufe für einen Scan? */
-$stufeBereit = static fn (array $b): bool => ($b['erreichbar'] ?? false) === true
-    || ($b['schluessel_je_anfrage'] ?? false) === true;
+$stufeBereit = static fn (array $b): bool => ($b['erreichbar'] ?? false) === true;
 
 // "bereit" heisst: Ein Scan käme durch. Ohne Zwischenspeicher geht das —
 // langsamer, aber vollständig. Ohne Modell geht es nicht.
@@ -247,14 +246,18 @@ function anthropicPruefen(array $llm): array
 {
     $schluessel = anthropicSchluessel($llm);
     if ($schluessel === '') {
-        // Kein Server-Schlüssel ist im Browser-Modus kein Ausfall: Der
-        // Schlüssel reist je Anfrage mit. Prüfen lässt er sich von hier
-        // nur, wenn die Anfrage selbst einen mitbringt.
+        // Ohne Schlüssel keine Stufe — und das wird ehrlich gemeldet. Hier
+        // stand einmal ein Sonderfall "der Schlüssel kommt je Anfrage aus
+        // dem Browser", der als bereit zählte; der Mechanismus dahinter ist
+        // abgeschafft, und der Sonderfall machte aus dem Messgerät einen
+        // Schönredner: bereit hiess plötzlich nicht mehr "eine Auswertung
+        // käme durch". Im Verbund ist dieses Nein übrigens der Normalfall
+        // der Workstation — ihre tiefe Stufe läuft beim Dirigenten.
         return [
             'erreichbar' => false,
-            'schluessel_je_anfrage' => true,
-            'rat' => 'Der Schlüssel kommt je Anfrage aus dem Browser mit. Zum Prüfen: '
-                . 'diesen Endpunkt mit der Kopfzeile X-Anthropic-Schluessel aufrufen.',
+            'rat' => 'ANTHROPIC_SCHLUESSEL ist nicht hinterlegt. Im Verbund gehört die '
+                . 'tiefe Stufe zum Dirigenten; für sich allein braucht diese Anlage '
+                . 'einen eigenen Schlüssel.',
         ];
     }
 

@@ -131,12 +131,25 @@ schritt_verzeichnisse() {
   fi
 
   # Ohne Rotation wachsen Zugriffs- und Langsam-Protokoll unbegrenzt.
+  #
+  # Die Vorlage nennt php8.3-fpm; hier wird die tatsächliche Version
+  # eingesetzt — dieselbe Quelle wie überall (php_version). Bliebe die
+  # Vorlage wörtlich, liefe der Reload nach einem PHP-Upgrade still ins
+  # Leere ('|| true'), FPM behielte den Griff auf die rotierte Datei, und
+  # die Fehlerprotokolle verschwänden einen Zyklus später in der
+  # komprimierten .1 — genau die Diagnose wäre weg, die man dann braucht.
+  # Verglichen wird gegen die eingesetzte Fassung, nicht gegen die Vorlage,
+  # sonst gälte die Datei auf jeder Nicht-8.3-Maschine ewig als veraltet.
   local dreh=/etc/logrotate.d/bierexpert
-  if [ -f "$dreh" ] && sudo cmp -s "$HIER/logrotate.conf" "$dreh"; then
+  local drehv
+  drehv=$(mktemp)
+  sed "s/php8\.3-fpm/php$(php_version)-fpm/" "$HIER/logrotate.conf" > "$drehv"
+  if [ -f "$dreh" ] && sudo cmp -s "$drehv" "$dreh"; then
     steht "$dreh"
   else
-    ausfuehren sudo install -m 644 -o root -g root "$HIER/logrotate.conf" "$dreh"
+    ausfuehren sudo install -m 644 -o root -g root "$drehv" "$dreh"
   fi
+  rm -f "$drehv"
 }
 
 # --------------------------------------------------------------------------
@@ -197,6 +210,21 @@ schritt_konfiguration() {
   fi
   : "${DB_PASSWORT:?Kein Datenbankpasswort — erst den Schritt datenbank laufen lassen}"
 
+  # Dieselbe Behandlung für den Dienstschlüssel und die Bilderadresse — und
+  # sie hat gefehlt, mit stiller Wirkung: Ein zweiter Lauf ohne die beiden
+  # Umgebungsvariablen (die README verspricht ausdrücklich "Ein zweiter Lauf
+  # verändert nichts") schrieb leere Werte in die Konfiguration. Danach wies
+  # nachschlagen.php jede Anfrage des Hosters mit 503 ab, der fiel still auf
+  # die bezahlte API zurück, und die Galerie-Adressen verschwanden — ohne
+  # dass irgendwo eine Meldung stand. Was schon da ist, gilt; die Umgebung
+  # überschreibt nur, wenn sie wirklich etwas Neues bringt.
+  if [ -z "${DIENST_SCHLUESSEL:-}" ] && [ -r "$KONFIG" ]; then
+    DIENST_SCHLUESSEL=$(php -r '$k = require $argv[1]; echo $k["dienst"]["schluessel"] ?? "";' "$KONFIG" 2>/dev/null || true)
+  fi
+  if [ -z "${BILDER_BASIS_URL:-}" ] && [ -r "$KONFIG" ]; then
+    BILDER_BASIS_URL=$(php -r '$k = require $argv[1]; echo $k["bilder"]["basis_url"] ?? "";' "$KONFIG" 2>/dev/null || true)
+  fi
+
   # Ein Wert wie O'Brien oder ein Passwort mit Backslash würde die erzeugte
   # PHP-Datei sonst zerreissen — und der Fehler sähe aus wie ein
   # Programmfehler. Dieselbe Absicherung wie in deploy/konfiguration.sh.
@@ -249,11 +277,14 @@ return [
         // die Kosten gehen gegen null, ohne dass die Anwendung langsamer
         // wird.
         'anbieter_tief' => 'anthropic',
-        // Bleibt leer: Der Schlüssel reist je Anfrage aus dem Browser mit
-        // (im Frontend unter "Eigener Anthropic-Schlüssel"). Wer stattdessen
-        // will, dass der Betreiber für alle zahlt, trägt ihn hier ein —
-        // dann aber bitte im Bewusstsein, dass jedes unbekannte Etikett
-        // eines beliebigen Besuchers auf diese Rechnung geht.
+        // Bleibt leer, und dann kann diese Anlage keine unbekannten
+        // Etiketten zerlegen — das ist im Verbund gewollt: Die tiefe Stufe
+        // läuft beim Dirigenten, der den Schlüssel hält. Nur eine Anlage,
+        // die für sich allein stehen soll, braucht hier einen — im
+        // Bewusstsein, dass jedes unbekannte Etikett eines beliebigen
+        // Besuchers auf diese Rechnung geht. Den früheren Weg, dass ein
+        // Besucher seinen eigenen Schlüssel im Browser hinterlegt, gibt es
+        // nicht mehr.
         'anthropic_schluessel' => '',
         'anthropic_modell' => 'claude-opus-5',
         'anthropic_modell_schnell' => 'claude-opus-5',
