@@ -41,17 +41,36 @@ const RAHMEN_ANTEIL = 0.74;
 const HELL_MIN = 0.26;
 
 /**
- * Ab wann es scharf genug ist (mittlere Kantenstärke, 0 bis 1).
+ * Ab wann es scharf genug ist — gemessen an der Steilheit des Umrisses.
  *
- * Verwackelt ist die häufigste Ursache für ein unbrauchbares Etikettfoto,
- * und die einzige, die der Leser sofort beheben kann — er muss nur wissen,
- * dass es daran liegt.
+ * Nicht an der mittleren Kantenstärke im Bild, und das ist eine Korrektur:
+ * Eine einfarbige Dose hat kaum Textur und lag mit 0,0117 unter jeder
+ * brauchbaren Schwelle, obwohl sie gestochen scharf war. Schlimmer noch,
+ * der Wert blieb bei zunehmender Unschärfe exakt gleich — er mass gar nicht
+ * die Schärfe, sondern wie gemustert der Gegenstand ist.
+ *
+ * Der Übergang vom Gegenstand zum Hintergrund dagegen ist bei jedem Körper
+ * vorhanden und wird durch Verwacklung zuverlässig weicher. Gemessen am
+ * 01.09. an beiden Formen, scharf bis stark verwackelt:
+ *
+ *   Flasche  0,389 → 0,307 → 0,203 → 0,126
+ *   Dose     0,465 → 0,389 → 0,274 → 0,184
+ *
+ * Die Schwelle lässt leichte Unschärfe durch — ein Etikett bleibt dabei
+ * lesbar — und weist ab, was darunter liegt.
  */
-const SCHARF_MIN = 0.018;
+const UMRISS_MIN = 0.26;
 
-/** Wie viel des Rahmens die Flasche füllen soll. */
-const FUELLUNG_MIN = 0.28;
-const FUELLUNG_MAX = 0.92;
+/**
+ * Wie voll das umschliessende Rechteck des Gegenstands sein muss.
+ *
+ * Eine Flasche kommt nur auf 0,417, weil ihr schmaler Hals das Rechteck
+ * oben leer lässt; eine Dose auf 0,998. Ein unaufgeräumter Tisch liegt bei
+ * 0,248. Die Schwelle trennt den Körper vom Durcheinander und muss deshalb
+ * unter dem Flaschenwert liegen — 0,5 wies am 01.09. jede Flasche ab.
+ */
+const DICHTE_MIN = 0.33;
+
 
 /** Wie das Bild im Rahmen gerade dasteht. */
 interface Befinden {
@@ -115,6 +134,14 @@ export async function kameraOeffnen(): Promise<File | null> {
     rahmen.className = 'kamera-rahmen';
     rahmen.style.aspectRatio = String(RAHMEN_VERHAELTNIS);
     rahmen.style.height = `${RAHMEN_ANTEIL * 100}%`;
+    // Die Umrisslinie einer Flasche statt eines Kastens. Sie sagt ohne ein
+    // Wort, wie herum und wie gross die Flasche stehen soll — und eine Dose
+    // passt in denselben Umriss, sie füllt nur den Hals nicht aus.
+    rahmen.innerHTML =
+      '<svg class="kamera-umriss" viewBox="0 0 100 240" preserveAspectRatio="none" aria-hidden="true">' +
+      '<path d="M40 4 L40 52 C40 68 14 78 14 104 L14 226 Q14 236 24 236 ' +
+      'L76 236 Q86 236 86 226 L86 104 C86 78 60 68 60 52 L60 4 ' +
+      'Q60 2 58 2 L42 2 Q40 2 40 4 Z" /></svg>';
 
     const anleitung = document.createElement('p');
     anleitung.className = 'kamera-anleitung body-md';
@@ -338,29 +365,11 @@ function befindenPruefen(bild: ImageData): Befinden {
     return { gut: false, satz: 'Zu dunkel — mehr Licht wäre besser.', dunkel: true };
   }
 
-  // Kantenstärke als Mass für Schärfe: Ein verwackeltes Bild hat weiche
-  // Übergänge, ein scharfes harte. Der Vergleich mit dem rechten und dem
-  // unteren Nachbarn genügt dafür.
-  let kanten = 0;
-  let zaehler = 0;
-
-  for (let y = 0; y < height - 1; y += 1) {
-    for (let x = 0; x < width - 1; x += 1) {
-      const p = y * width + x;
-      kanten += Math.abs(grau[p]! - grau[p + 1]!) + Math.abs(grau[p]! - grau[p + width]!);
-      zaehler += 2;
-    }
-  }
-
-  const schaerfe = zaehler > 0 ? kanten / zaehler : 0;
-
-  // Wie viel des Rahmens die Flasche einnimmt.
+  // Steht da wirklich eine Flasche?
   //
   // Der Hintergrund wird nicht gesucht, sondern am Rand abgelesen: Die
   // äussersten Spalten zeigen fast immer Tisch oder Wand. Alles, was sich
-  // davon deutlich unterscheidet, gilt als Flasche. Das ist grob und für
-  // diese Frage genau richtig — gebraucht wird "ungefähr wie viel", nicht
-  // eine Freistellung.
+  // davon deutlich unterscheidet, gilt als Gegenstand.
   const rand: number[] = [];
   const randBreite = Math.max(1, Math.round(width * 0.08));
 
@@ -374,30 +383,126 @@ function befindenPruefen(bild: ImageData): Befinden {
   rand.sort((a, b) => a - b);
   const hintergrund = rand[Math.floor(rand.length / 2)] ?? 0;
 
-  let anders = 0;
+  // Je Zeile: wie breit ist der Gegenstand, und wo steht er.
+  const breiten = new Int32Array(height);
+  const links = new Int32Array(height).fill(width);
+  const rechts = new Int32Array(height).fill(-1);
+  let punkte = 0;
 
-  for (const y of grau) {
-    if (Math.abs(y - hintergrund) > 0.14) anders += 1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (Math.abs(grau[y * width + x]! - hintergrund) <= 0.14) continue;
+      breiten[y] = breiten[y]! + 1;
+      punkte += 1;
+      if (x < links[y]!) links[y] = x;
+      if (x > rechts[y]!) rechts[y] = x;
+    }
   }
 
-  const fuellung = anders / grau.length;
+  // Nur Zeilen mit etwas Substanz zählen — ein einzelner Punkt ist Rauschen.
+  const belegt = (y: number): boolean => breiten[y]! >= Math.max(2, width * 0.06);
 
-  if (fuellung < FUELLUNG_MIN) {
+  let oben = -1;
+  let unten = -1;
+
+  for (let y = 0; y < height; y += 1) {
+    if (!belegt(y)) continue;
+    if (oben < 0) oben = y;
+    unten = y;
+  }
+
+  if (oben < 0) {
+    return { gut: false, satz: 'Nichts im Rahmen — die Flasche hineinstellen.', dunkel: false };
+  }
+
+  const hoeheAnteil = (unten - oben + 1) / height;
+
+  if (hoeheAnteil < 0.55) {
     return { gut: false, satz: 'Näher heran — die Flasche soll den Rahmen füllen.', dunkel: false };
   }
 
-  if (fuellung > FUELLUNG_MAX) {
-    return { gut: false, satz: 'Etwas weiter weg — die Flasche ganz in den Rahmen.', dunkel: false };
+  // Oben oder unten angeschnitten: Dann fehlt Hals oder Boden, und genau
+  // das soll der Rahmen verhindern. Eine halbe Flasche ist als Referenzfoto
+  // wertlos — die Registrierung braucht die ganze Gestalt.
+  if (oben === 0 || unten === height - 1) {
+    return {
+      gut: false,
+      satz: 'Etwas weiter weg — die ganze Flasche muss hineinpassen.',
+      dunkel: false,
+    };
   }
 
-  // Die Schärfe zuletzt, und das ist kein Geschmack, sondern eine Messung:
-  // Ein fast leerer Rahmen hat von sich aus kaum Kanten. Gemessen am 31.08.
-  // ergab eine gestochen scharfe, aber zu kleine Flasche 0,010 — weniger
-  // als jede verwackelte Aufnahme, die den Rahmen füllt. Stünde die
-  // Schärfeprüfung vorn, hiesse es "noch unscharf", wo "näher heran" die
-  // richtige Anweisung ist. Erst wenn genug im Bild ist, lässt sich über
-  // seine Schärfe überhaupt etwas sagen.
-  if (schaerfe < SCHARF_MIN) {
+  let maxBreite = 0;
+  let randBeruehrt = false;
+
+  for (let y = oben; y <= unten; y += 1) {
+    if (breiten[y]! > maxBreite) maxBreite = breiten[y]!;
+    if (belegt(y) && (links[y] === 0 || rechts[y] === width - 1)) randBeruehrt = true;
+  }
+
+  if (randBeruehrt) {
+    return {
+      gut: false,
+      satz: 'Etwas weiter weg — die ganze Flasche muss hineinpassen.',
+      dunkel: false,
+    };
+  }
+
+  // Die Gestalt: Eine Flasche ist oben schmal und unten breit, eine Dose
+  // durchgehend gleich breit. Beides ist recht; was ausgeschlossen wird,
+  // ist das Gegenteil — oben breiter als in der Mitte — und alles, was gar
+  // keine zusammenhängende Säule ist.
+  const mittel = (von: number, bis: number): number => {
+    let summe = 0;
+    let n = 0;
+    for (let y = von; y <= bis; y += 1) {
+      summe += breiten[y]!;
+      n += 1;
+    }
+    return n > 0 ? summe / n : 0;
+  };
+
+  const gestalt = unten - oben;
+  const kopf = mittel(oben, oben + Math.round(gestalt * 0.22));
+  const bauch = mittel(oben + Math.round(gestalt * 0.45), oben + Math.round(gestalt * 0.85));
+
+  if (bauch <= 0 || kopf / bauch > 1.15) {
+    return { gut: false, satz: 'Keine Flasche zu erkennen — hochkant hineinstellen.', dunkel: false };
+  }
+
+  // Wie voll das umschliessende Rechteck ist. Eine Flasche oder Dose ist ein
+  // geschlossener Körper; eine Hand, ein Stapel Deckel oder ein
+  // unaufgeräumter Tisch sind es nicht und fallen hier durch.
+  const dichte = punkte / (maxBreite * (unten - oben + 1));
+
+  if (dichte < DICHTE_MIN) {
+    return { gut: false, satz: 'Keine Flasche zu erkennen — hochkant hineinstellen.', dunkel: false };
+  }
+
+  // Die Schärfe zuletzt, und erst jetzt überhaupt möglich: Gemessen wird
+  // die Steilheit des Übergangs am Umriss, und dafür muss der Umriss erst
+  // bekannt sein. Je Zeile der steilste Sprung, davon der mittlere Wert —
+  // der Median und nicht der Mittelwert, damit ein einzelner Glanzpunkt das
+  // Urteil nicht trägt.
+  const spruenge: number[] = [];
+
+  for (let y = oben; y <= unten; y += 1) {
+    if (breiten[y]! < 3) continue;
+
+    let steilster = 0;
+
+    for (let x = 0; x < width - 1; x += 1) {
+      const sprung = Math.abs(grau[y * width + x]! - grau[y * width + x + 1]!);
+      if (sprung > steilster) steilster = sprung;
+    }
+
+    spruenge.push(steilster);
+  }
+
+  spruenge.sort((a, b) => a - b);
+  const umriss = spruenge[Math.floor(spruenge.length / 2)] ?? 0;
+
+  if (umriss < UMRISS_MIN) {
     return { gut: false, satz: 'Noch unscharf — einen Moment stillhalten.', dunkel: false };
   }
 

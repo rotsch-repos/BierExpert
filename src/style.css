@@ -1048,13 +1048,27 @@ kbd {
 /* Der Rahmen selbst zeichnet nur seine Kante. Alles ausserhalb dunkelt ein
    ausufernder Schatten ab — dieselbe Bauart wie die Markierung im Befund,
    und aus demselben Grund: Der Blick geht dorthin, wo er hingehört. */
+/* Der Rahmen selbst traegt keine Kante mehr — die zeichnet der Umriss. Er
+   bleibt aber das Rechteck, das den Ausschnitt aufspannt: Fotografiert wird
+   ein Bild und keine Flaschensilhouette, und die Beurteilung rechnet
+   ebenfalls auf dieser Flaeche. */
 .kamera-rahmen {
   position: relative;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  border-radius: var(--rounded-lg);
   box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55);
   pointer-events: none;
-  transition: border-color 200ms ease, box-shadow 200ms ease;
+  transition: box-shadow 200ms ease;
+}
+
+.kamera-umriss {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  transition: stroke 200ms ease, filter 200ms ease;
 }
 
 /* Steht alles richtig, wird der Rahmen bierfarben — und zwar deutlich, mit
@@ -1062,12 +1076,10 @@ kbd {
    der Kamera, die man aus dem Augenwinkel erkennt, ohne den Satz oben zu
    lesen: Der Leser hält das Handy in Bewegung und richtet aus; er hat keine
    Hand frei zum Nachdenken. */
-.kamera-rahmen.gut {
-  border-color: #f0b429;
-  box-shadow:
-    0 0 0 100vmax rgba(0, 0, 0, 0.55),
-    0 0 18px 3px rgba(240, 180, 41, 0.75),
-    inset 0 0 18px 2px rgba(240, 180, 41, 0.35);
+.kamera-rahmen.gut .kamera-umriss {
+  stroke: #f0b429;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px rgba(240, 180, 41, 0.9));
 }
 
 /* Ist es ohnehin zu dunkel, wird die Abdunklung ausserhalb zurückgenommen.
