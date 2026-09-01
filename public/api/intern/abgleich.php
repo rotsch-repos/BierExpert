@@ -92,9 +92,12 @@ function bierSpiegeln(int $bierId): void
         CURLOPT_POSTFIELDS => json_encode($rumpf, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            // Dasselbe Geheimnis wie in der Gegenrichtung: Beide Seiten
-            // kennen genau eines, und es schützt beide Türen.
+            // Dasselbe Geheimnis wie in der Gegenrichtung, auf zwei Wegen:
+            // Bearer für Server, die ihn durchreichen, die eigene Kopfzeile
+            // für Apache auf geteiltem Hosting, der Authorization vor PHP
+            // verschluckt.
             'Authorization: Bearer ' . konfiguration()['dienst']['schluessel'],
+            'X-Dienst-Schluessel: ' . konfiguration()['dienst']['schluessel'],
         ],
         CURLOPT_RETURNTRANSFER => true,
         // Knapp: Der Spiegel läuft im Rücken eines Scans. Ein zäher Hoster

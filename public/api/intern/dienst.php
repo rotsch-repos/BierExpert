@@ -55,10 +55,25 @@ function dienstSchluesselPruefen(): void
     }
 
     $mitgebracht = '';
-    $kopf = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+
+    // Auch die REDIRECT_-Fassung: Apache auf geteiltem Hosting reicht die
+    // Authorization-Kopfzeile oft nicht an PHP durch, legt sie aber nach
+    // einer Rewrite-Runde unter diesem Namen ab.
+    $kopf = (string) ($_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? '');
 
     if (str_starts_with($kopf, 'Bearer ')) {
         $mitgebracht = substr($kopf, 7);
+    }
+
+    // Und als verlässlichster Weg eine eigene Kopfzeile: Die streicht kein
+    // Webserver, weil keiner sie für seine eigene Anmeldung hält. Genau
+    // daran scheiterte der erste Spiegel zum Hoster — die Workstation
+    // schickte Bearer, Apache verschluckte ihn, und der Abgleich lief mit
+    // 401 ins Leere, während die Gegenrichtung (nginx) tadellos ging.
+    if ($mitgebracht === '') {
+        $mitgebracht = trim((string) ($_SERVER['HTTP_X_DIENST_SCHLUESSEL'] ?? ''));
     }
 
     // hash_equals und nicht ===: Ein einfacher Vergleich bricht beim ersten
