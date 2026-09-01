@@ -224,6 +224,9 @@ schritt_konfiguration() {
   if [ -z "${BILDER_BASIS_URL:-}" ] && [ -r "$KONFIG" ]; then
     BILDER_BASIS_URL=$(php -r '$k = require $argv[1]; echo $k["bilder"]["basis_url"] ?? "";' "$KONFIG" 2>/dev/null || true)
   fi
+  if [ -z "${ABGLEICH_ADRESSE:-}" ] && [ -r "$KONFIG" ]; then
+    ABGLEICH_ADRESSE=$(php -r '$k = require $argv[1]; echo $k["abgleich"]["adresse"] ?? "";' "$KONFIG" 2>/dev/null || true)
+  fi
 
   # Ein Wert wie O'Brien oder ein Passwort mit Backslash würde die erzeugte
   # PHP-Datei sonst zerreissen — und der Fehler sähe aus wie ein
@@ -308,6 +311,11 @@ return [
     'dienst' => [
         'adresse' => '',
         'schluessel' => $(php_text "${DIENST_SCHLUESSEL:-}"),
+    ],
+    // Der Spiegel: Jedes neue Bier geht sofort an den Hoster, damit sein
+    // Notvorrat frisch bleibt. Die Adresse ist die der Seite plus /api.
+    'abgleich' => [
+        'adresse' => $(php_text "${ABGLEICH_ADRESSE:-}"),
     ],
     // Die aufbewahrten Scanfotos. Ausserhalb des Symlinks auf den aktuellen
     // Stand, sonst verschwänden sie bei jedem Deploy.

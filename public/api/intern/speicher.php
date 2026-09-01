@@ -556,3 +556,36 @@ function bierNachKennung(int $id): ?array
         return null;
     }
 }
+
+/**
+ * Merkt sich, dass ein Foto mit dieser Prüfsumme zu diesem Bier gehört.
+ *
+ * Für den Abgleich: Die Zeile ist das Minimum, das bierZuScan() zum
+ * Wiederfinden braucht — kein Foto, keine Messwerte, nur die Verbindung.
+ * Schon vorhandene Verbindungen werden nicht verdoppelt.
+ */
+function scanVerbindungSichern(string $pruefsumme, int $bierId): void
+{
+    $db = datenbank();
+    if ($db === null) {
+        return;
+    }
+
+    try {
+        $da = $db->prepare(
+            'SELECT 1 FROM scans WHERE bild_pruefsumme = ? AND bier_id = ? LIMIT 1',
+        );
+        $da->execute([$pruefsumme, $bierId]);
+
+        if ($da->fetchColumn() !== false) {
+            return;
+        }
+
+        $db->prepare(
+            'INSERT INTO scans (bild_pruefsumme, bier_id, aus_speicher, modell)
+             VALUES (?, ?, 1, ?)',
+        )->execute([$pruefsumme, $bierId, 'abgleich']);
+    } catch (PDOException $fehler) {
+        error_log('BierExpert: Scan-Verbindung nicht ablegbar — ' . $fehler->getMessage());
+    }
+}

@@ -61,6 +61,7 @@ require_once __DIR__ . '/signatur.php';
 require_once __DIR__ . '/wiedererkennung.php';
 require_once __DIR__ . '/registrierung.php';
 require_once __DIR__ . '/dienst.php';
+require_once __DIR__ . '/abgleich.php';
 require_once __DIR__ . '/ablauf.php';
 
 /*

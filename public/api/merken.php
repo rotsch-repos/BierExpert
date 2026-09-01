@@ -89,6 +89,10 @@ if ($referenzBild !== '') {
 // Bier neu in die Datenbank kommt. Alles Spätere liest nur noch.
 elementbilderErzeugen($kennung, $referenzBild, $etikett['elemente']);
 
+// Zum Hoster spiegeln, solange der Eintrag frisch ist. Scheitert es, holt
+// es der nächste Abgleich nach — der Scan bleibt davon unberührt.
+bierSpiegeln($kennung);
+
 antwortSenden(200, [
     'id' => $kennung,
     'bilder' => bilderZuBier($kennung),

@@ -151,6 +151,13 @@ function konfiguration(): array
         // der Fall auf der Workstation, und es ist der Fall bei jeder
         // Installation, die es einfach halten will — der Ablauf ist
         // derselbe, nur ohne den Umweg über das Netz.
+        // Wohin diese Anlage ihren Bestand spiegelt — der Notvorrat beim
+        // Hoster. Leer heisst aus; beim Hoster selbst ist es das immer,
+        // sonst spiegelte der Spiegel in sich selbst.
+        'abgleich' => [
+            'adresse' => rtrim((string) ($roh['abgleich']['adresse'] ?? ''), '/'),
+        ],
+
         'dienst' => [
             'adresse' => rtrim((string) ($roh['dienst']['adresse'] ?? ''), '/'),
             // Gemeinsames Geheimnis zwischen Hoster und Workstation. Ohne

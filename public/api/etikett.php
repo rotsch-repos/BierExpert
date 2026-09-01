@@ -61,109 +61,130 @@ if (dienstAktiv()) {
     stromStufe('erkennung');
     stromAktiv() && stromZeile(['stufe' => 'erkennung']);
 
-    $befund = dienstFragen('nachschlagen.php', [
-        'bild' => $bild->base64,
-        'typ' => $bild->medienTyp,
-        'bestaetigt_id' => $bestaetigt,
-    ]);
+    // Abgefangen, und das ist der ganze Witz des Notvorrats: Ohne den Fang
+    // machte ein Ausfall von Workstation oder Tunnel aus JEDEM Scan einen
+    // harten Fehler — der Selbstversorger-Zweig darunter war toter Code,
+    // obwohl der Auftrag ausdruecklich versprach, der Hoster antworte dann
+    // aus eigener Kraft. Ein Fehlschlag hier ist kein Ende, sondern die
+    // Weiche: weiter unten uebernimmt die eigene Datenbank samt der
+    // bezahlten API.
+    $befund = null;
 
-    $gelesen = is_array($befund['gelesen'] ?? null) ? $befund['gelesen'] : [];
-
-    stromAktiv() && stromZeile([
-        'stufe' => 'erkannt',
-        'ist_bier' => (bool) ($gelesen['ist_bier'] ?? true),
-        'brauerei' => (string) ($gelesen['brauerei'] ?? ''),
-        'name' => (string) ($gelesen['name'] ?? ''),
-        'sicherheit' => (string) ($gelesen['sicherheit'] ?? ''),
-    ]);
-
-    if (($befund['gefunden'] ?? false) === true && is_array($befund['etikett'] ?? null)) {
-        // Auch hier durch die Reinigung: Die Zerlegung kam über das Netz,
-        // und was über das Netz kam, ist nicht deshalb wohlgeformt, weil es
-        // von der eigenen Gegenstelle stammt.
-        $etikett = etikettSaeubern($befund['etikett']);
-
-        stromAktiv() && stromZeile([
-            'stufe' => 'gefunden',
-            'quelle' => 'speicher',
-            'brauerei' => $etikett['brauerei'],
-            'name' => $etikett['name'],
-            'stil' => $etikett['stil'],
+    try {
+        $befund = dienstFragen('nachschlagen.php', [
+            'bild' => $bild->base64,
+            'typ' => $bild->medienTyp,
+            'bestaetigt_id' => $bestaetigt,
         ]);
-
-        antwortSenden(200, [
-            'etikett' => $etikett,
-            'bilder' => bilderListe($befund['bilder'] ?? null),
-            'quelle' => 'speicher',
-            'dauer_ms' => $dauer(),
-        ]);
+    } catch (BierFehler $fehler) {
+        // Ins Protokoll, nicht in die Antwort: Der Leser bekommt gleich
+        // trotzdem seinen Befund — nur eben von hier statt von dort.
+        error_log('BierExpert: Nachschlage-Dienst nicht erreichbar, weiter aus eigener Kraft — '
+            . $fehler->getMessage());
     }
 
-    /* --- Vermutung: fragen, bevor gezahlt wird ---------------------------- */
+    if (is_array($befund)) {
 
-    // Der Dienst hält dieses Bier für ein bekanntes, ist sich aber nicht
-    // sicher genug. Hier endet der Aufruf — ohne Zerlegung, ohne Kosten.
-    //
-    // Der Leser sieht sein Etikett und das gespeicherte Referenzfoto
-    // nebeneinander und entscheidet in einer Sekunde, wofür keine Menge an
-    // Signalen reicht. Sagt er ja, kommt dieselbe Anfrage mit bestaetigt_id
-    // zurück und wird zum gewöhnlichen Treffer; sagt er nein, kommt sie ohne
-    // und läuft in die Zerlegung darunter.
-    if (is_array($befund['vermutung'] ?? null)) {
-        $vermutung = vermutungSaeubern($befund['vermutung']);
+        $gelesen = is_array($befund['gelesen'] ?? null) ? $befund['gelesen'] : [];
 
-        if ($vermutung !== null) {
+        stromAktiv() && stromZeile([
+            'stufe' => 'erkannt',
+            'ist_bier' => (bool) ($gelesen['ist_bier'] ?? true),
+            'brauerei' => (string) ($gelesen['brauerei'] ?? ''),
+            'name' => (string) ($gelesen['name'] ?? ''),
+            'sicherheit' => (string) ($gelesen['sicherheit'] ?? ''),
+        ]);
+
+        if (($befund['gefunden'] ?? false) === true && is_array($befund['etikett'] ?? null)) {
+            // Auch hier durch die Reinigung: Die Zerlegung kam über das Netz,
+            // und was über das Netz kam, ist nicht deshalb wohlgeformt, weil es
+            // von der eigenen Gegenstelle stammt.
+            $etikett = etikettSaeubern($befund['etikett']);
+
             stromAktiv() && stromZeile([
-                'stufe' => 'vermutung',
-                'brauerei' => $vermutung['brauerei'],
-                'name' => $vermutung['name'],
+                'stufe' => 'gefunden',
+                'quelle' => 'speicher',
+                'brauerei' => $etikett['brauerei'],
+                'name' => $etikett['name'],
+                'stil' => $etikett['stil'],
             ]);
 
             antwortSenden(200, [
-                'vermutung' => $vermutung,
-                'quelle' => 'vermutung',
+                'etikett' => $etikett,
+                'bilder' => bilderListe($befund['bilder'] ?? null),
+                'quelle' => 'speicher',
                 'dauer_ms' => $dauer(),
             ]);
         }
-    }
 
-    /* --- Fehlschlag: die bezahlte API, und danach zurückmelden ------------ */
+        /* --- Vermutung: fragen, bevor gezahlt wird ---------------------------- */
 
-    stromStufe('auswertung');
-    stromAktiv() && stromZeile(['stufe' => 'auswertung', 'anbieter' => $llm['anbieter_tief']]);
+        // Der Dienst hält dieses Bier für ein bekanntes, ist sich aber nicht
+        // sicher genug. Hier endet der Aufruf — ohne Zerlegung, ohne Kosten.
+        //
+        // Der Leser sieht sein Etikett und das gespeicherte Referenzfoto
+        // nebeneinander und entscheidet in einer Sekunde, wofür keine Menge an
+        // Signalen reicht. Sagt er ja, kommt dieselbe Anfrage mit bestaetigt_id
+        // zurück und wird zum gewöhnlichen Treffer; sagt er nein, kommt sie ohne
+        // und läuft in die Zerlegung darunter.
+        if (is_array($befund['vermutung'] ?? null)) {
+            $vermutung = vermutungSaeubern($befund['vermutung']);
 
-    $etikett = etikettSaeubern(
-        modellFragen(ETIKETT_ANWEISUNG, ETIKETT_FRAGE, schemaEtikett(), $bild->base64),
-    );
+            if ($vermutung !== null) {
+                stromAktiv() && stromZeile([
+                    'stufe' => 'vermutung',
+                    'brauerei' => $vermutung['brauerei'],
+                    'name' => $vermutung['name'],
+                ]);
 
-    $bilder = [];
-
-    if ($etikett['erkannt']) {
-        // Zurückmelden, damit das Kompendium wächst. Scheitert es, ist die
-        // Auskunft an den Leser trotzdem vollständig — nur beim nächsten
-        // Foto desselben Biers fiele wieder ein bezahlter Aufruf an.
-        // Deshalb ins Log und nicht in die Antwort.
-        try {
-            $gemerkt = dienstFragen('merken.php', [
-                'schluessel' => (string) ($befund['schluessel'] ?? ''),
-                'pruefsumme' => (string) ($befund['pruefsumme'] ?? $bild->pruefsumme),
-                'etikett' => $etikett,
-                'modell' => $llm['anbieter_tief'] === 'anthropic'
-                    ? $llm['anthropic_modell']
-                    : $llm['modell'],
-            ]);
-            $bilder = bilderListe($gemerkt['bilder'] ?? null);
-        } catch (BierFehler $fehler) {
-            error_log('BierExpert: Zerlegung nicht zurückgemeldet — ' . $fehler->getMessage());
+                antwortSenden(200, [
+                    'vermutung' => $vermutung,
+                    'quelle' => 'vermutung',
+                    'dauer_ms' => $dauer(),
+                ]);
+            }
         }
-    }
 
-    antwortSenden(200, [
-        'etikett' => $etikett,
-        'bilder' => $bilder,
-        'quelle' => 'modell',
-        'dauer_ms' => $dauer(),
-    ]);
+        /* --- Fehlschlag: die bezahlte API, und danach zurückmelden ------------ */
+
+        stromStufe('auswertung');
+        stromAktiv() && stromZeile(['stufe' => 'auswertung', 'anbieter' => $llm['anbieter_tief']]);
+
+        $etikett = etikettSaeubern(
+            modellFragen(ETIKETT_ANWEISUNG, ETIKETT_FRAGE, schemaEtikett(), $bild->base64),
+        );
+
+        $bilder = [];
+
+        if ($etikett['erkannt']) {
+            // Zurückmelden, damit das Kompendium wächst. Scheitert es, ist die
+            // Auskunft an den Leser trotzdem vollständig — nur beim nächsten
+            // Foto desselben Biers fiele wieder ein bezahlter Aufruf an.
+            // Deshalb ins Log und nicht in die Antwort.
+            try {
+                $gemerkt = dienstFragen('merken.php', [
+                    'schluessel' => (string) ($befund['schluessel'] ?? ''),
+                    'pruefsumme' => (string) ($befund['pruefsumme'] ?? $bild->pruefsumme),
+                    'etikett' => $etikett,
+                    'modell' => $llm['anbieter_tief'] === 'anthropic'
+                        ? $llm['anthropic_modell']
+                        : $llm['modell'],
+                ]);
+                $bilder = bilderListe($gemerkt['bilder'] ?? null);
+            } catch (BierFehler $fehler) {
+                error_log('BierExpert: Zerlegung nicht zurückgemeldet — ' . $fehler->getMessage());
+            }
+        }
+
+        antwortSenden(200, [
+            'etikett' => $etikett,
+            'bilder' => $bilder,
+            'quelle' => 'modell',
+            'dauer_ms' => $dauer(),
+        ]);
+    }
+    // Kein Befund vom Dienst: durchfallen — ab hier gilt der Weg der
+    // Anlage, die alles selbst hat.
 }
 
 /* --- Erste Stufe: ablesen ------------------------------------------------ */

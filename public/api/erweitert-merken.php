@@ -60,4 +60,9 @@ if ($bekannt === null) {
 
 erweitertSpeichernZuKennung($bekannt['id'], $erweitert);
 
+// Auch die erweiterte Sicht gehört in den Notvorrat: Ohne sie zahlte der
+// Rückfall sie bei jedem Scan neu — genau der Fehler, der hier gerade
+// behoben wurde, nur eine Ausfallstufe später.
+bierSpiegeln($bekannt['id']);
+
 antwortSenden(200, ['id' => $bekannt['id']]);
