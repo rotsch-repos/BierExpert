@@ -90,10 +90,27 @@ if (dienstAktiv()) {
             ]);
         }
     } catch (BierFehler $fehler) {
-        // Der Dienst antwortet nicht. Kein Grund aufzugeben: Die bezahlte
-        // API kann die Auskunft geben, sie kostet nur. Ins Protokoll,
-        // damit ein dauerhaft stummer Dienst auffällt.
         error_log('BierExpert: Erweitert-Nachschlag fehlgeschlagen — ' . $fehler->getMessage());
+
+        // Hier stand einmal "kein Grund aufzugeben: die bezahlte API kann
+        // die Auskunft geben, sie kostet nur". Roger hat das gestrichen —
+        // "sie kostet nur" ist bei einem längeren Ausfall keine Fussnote,
+        // sondern eine offene Rechnung je Besucher-Scan. Im Ausfall gibt es
+        // nur noch, was die eigene Datenbank umsonst hergibt: Der kurze Weg
+        // unten schlägt über die Prüfsumme nach — der Spiegel hat die
+        // erweiterte Sicht bekannter Biere ja hierher gelegt. Findet er
+        // nichts, macht der Braumeister Pause.
+        $bekannt = bierZuScan($bild->pruefsumme);
+
+        if ($bekannt !== null && is_array($bekannt['erweitert'])) {
+            antwortSenden(200, [
+                'erweitert' => $bekannt['erweitert'],
+                'quelle' => 'speicher',
+                'dauer_ms' => $dauer(),
+            ]);
+        }
+
+        throw braumeisterPause();
     }
 
     stromStufe('auswertung');

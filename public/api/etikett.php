@@ -61,14 +61,17 @@ if (dienstAktiv()) {
     stromStufe('erkennung');
     stromAktiv() && stromZeile(['stufe' => 'erkennung']);
 
-    // Abgefangen, und das ist der ganze Witz des Notvorrats: Ohne den Fang
-    // machte ein Ausfall von Workstation oder Tunnel aus JEDEM Scan einen
-    // harten Fehler — der Selbstversorger-Zweig darunter war toter Code,
-    // obwohl der Auftrag ausdruecklich versprach, der Hoster antworte dann
-    // aus eigener Kraft. Ein Fehlschlag hier ist kein Ende, sondern die
-    // Weiche: weiter unten uebernimmt die eigene Datenbank samt der
-    // bezahlten API.
+    // Abgefangen — aber der Ausfall macht aus dem Rückfall KEINEN Freibrief.
+    //
+    // Der erste Entwurf fiel hier in den vollen Selbstversorger-Zweig durch,
+    // Ablesen und Zerlegen inklusive — beim Hoster heisst das: über die
+    // bezahlte API. Roger hat das gestoppt, und die Rechnung gibt ihm recht:
+    // Steht die Workstation einen Abend still, zahlte jeder Besucher-Scan
+    // bares Geld, unbegrenzt und unbeaufsichtigt. Deshalb gilt im Ausfall:
+    // Was die eigene Datenbank umsonst hergibt, wird geliefert — für alles
+    // andere macht der Braumeister Pause.
     $befund = null;
+    $dienstAusgefallen = false;
 
     try {
         $befund = dienstFragen('nachschlagen.php', [
@@ -77,10 +80,51 @@ if (dienstAktiv()) {
             'bestaetigt_id' => $bestaetigt,
         ]);
     } catch (BierFehler $fehler) {
-        // Ins Protokoll, nicht in die Antwort: Der Leser bekommt gleich
-        // trotzdem seinen Befund — nur eben von hier statt von dort.
-        error_log('BierExpert: Nachschlage-Dienst nicht erreichbar, weiter aus eigener Kraft — '
+        $dienstAusgefallen = true;
+        error_log('BierExpert: Nachschlage-Dienst nicht erreichbar — '
             . $fehler->getMessage());
+    }
+
+    // Der Notmodus: nur, was nichts kostet. Die Prüfsumme fragt allein die
+    // eigene Datenbank — dank des Spiegels kennt der Notvorrat jedes Foto,
+    // das die Workstation je gesehen hat. Ohne Verortung: Die brauchte ein
+    // Modell, und Modelle kosten hier. Rahmen fehlen dann eben; ein Befund
+    // ohne Markierungen ist ein Befund, eine Rechnung ohne Aufsicht nicht.
+    if ($dienstAusgefallen) {
+        $bekannt = bierZuScan($bild->pruefsumme);
+        $notTreffer = $bekannt !== null ? bierLaden((string) $bekannt['schluessel']) : null;
+
+        if ($notTreffer !== null && $notTreffer['etikett']['elemente'] !== []) {
+            $etikett = etikettSaeubern($notTreffer['etikett']);
+            $etikett['sicherheit'] = 'hoch'; // Das Foto ist Byte für Byte bekannt.
+            $etikett['hinweis'] = '';
+
+            scanProtokollieren([
+                'pruefsumme' => $bild->pruefsumme,
+                'bild_datei' => null,
+                'bier_id' => $notTreffer['id'],
+                'aus_speicher' => true,
+                'dauer_ms' => $dauer(),
+                'modell' => 'notvorrat',
+            ]);
+
+            stromAktiv() && stromZeile([
+                'stufe' => 'gefunden',
+                'quelle' => 'speicher',
+                'brauerei' => $etikett['brauerei'],
+                'name' => $etikett['name'],
+                'stil' => $etikett['stil'],
+            ]);
+
+            antwortSenden(200, [
+                'etikett' => $etikett,
+                'bilder' => [],
+                'quelle' => 'speicher',
+                'dauer_ms' => $dauer(),
+            ]);
+        }
+
+        throw braumeisterPause();
     }
 
     if (is_array($befund)) {
@@ -183,8 +227,6 @@ if (dienstAktiv()) {
             'dauer_ms' => $dauer(),
         ]);
     }
-    // Kein Befund vom Dienst: durchfallen — ab hier gilt der Weg der
-    // Anlage, die alles selbst hat.
 }
 
 /* --- Erste Stufe: ablesen ------------------------------------------------ */

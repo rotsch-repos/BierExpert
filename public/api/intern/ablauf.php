@@ -322,3 +322,27 @@ function vermutungSaeubern(array $roh): ?array
         'bild' => bildAdresse($roh['bild'] ?? null),
     ];
 }
+
+/**
+ * Der Braumeister macht Pause — die Auswertung, die jetzt Geld kosten
+ * würde, findet nicht statt.
+ *
+ * Zwei Anlässe, ein Satz: Die Workstation ist nicht erreichbar und der
+ * nächste Schritt ginge auf die bezahlte API — oder die bezahlte API
+ * meldet selbst, dass das Guthaben aufgebraucht ist. In beiden Fällen wäre
+ * Weitermachen keine Tapferkeit, sondern eine offene Rechnung: Jeder
+ * Besucher-Scan kostete bares Geld, unbegrenzt, solange niemand hinsieht.
+ * Roger hat entschieden, dass die Anwendung sich dann lieber hinsetzt und
+ * mittrinkt.
+ *
+ * 503 und nicht 500: Der Zustand ist vorübergehend, und so heisst er auch.
+ */
+function braumeisterPause(): BierFehler
+{
+    return new BierFehler(
+        'Wir trinken gerade selbst ein Bier.',
+        'Der Braumeister ist betrunken und kann sich dein Etikett gerade nicht '
+            . 'ansehen. Schau später wieder vorbei — nüchtern liest er jedes.',
+        503,
+    );
+}

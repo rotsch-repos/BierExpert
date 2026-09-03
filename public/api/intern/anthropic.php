@@ -237,6 +237,21 @@ function anthropicStatusFehler(int $status, string $rumpf): BierFehler
         $gemeldet = $daten['error']['message'];
     }
 
+    // Aufgebrauchtes Guthaben ist kein technischer Fehler, sondern ein
+    // Betriebszustand — und einer, in dem die Anwendung aufhören soll zu
+    // bestellen. Anthropic meldet ihn als 400er mit einem Satz über die
+    // "credit balance"; die Prüfung ist bewusst grosszügig gefasst, denn
+    // die schlechteste Lesart wäre, ihn für einen gewöhnlichen Fehler zu
+    // halten und beim nächsten Scan einfach wieder anzuklopfen.
+    $klein = strtolower($gemeldet);
+
+    if (str_contains($klein, 'credit balance') || str_contains($klein, 'billing')
+        || str_contains($klein, 'insufficient credit')) {
+        error_log('BierExpert: Anthropic-Guthaben aufgebraucht — ' . $gemeldet);
+
+        return braumeisterPause();
+    }
+
     return match (true) {
         $status === 401 || $status === 403 => new BierFehler(
             'Der Anthropic-Schlüssel wurde abgewiesen.',
